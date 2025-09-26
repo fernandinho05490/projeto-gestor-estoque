@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Django Server",
+            "type": "shell",
+
+            // Comando: Usa o caminho COMPLETO para o python da venv
+            "command": "${workspaceFolder}\\venv\\Scripts\\python.exe manage.py runserver",
+
+            // Opções: Define a pasta de trabalho correta para o manage.py
+            "options": {
+                "cwd": "${workspaceFolder}/Suestoque/gestor_estoque"
+            },
+            
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        }
+    ]
+}
