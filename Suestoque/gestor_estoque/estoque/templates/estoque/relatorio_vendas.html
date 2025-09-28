@@ -48,10 +48,20 @@
     <main class="container my-4">
         <!-- CABEÇALHO DA PÁGINA -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h2 mb-0">Relatório de Vendas: <span class="text-primary">{{ periodo_titulo }}</span></h1>
-            <a href="{% url 'dashboard_estoque' %}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left-circle-fill"></i> Voltar ao Dashboard
-            </a>
+            <h1 class="h2 mb-0">
+                Relatório de Vendas: <span class="text-primary">{{ periodo_titulo }}</span>
+                <span class="text-muted fw-normal">{{ periodo_titulo_detalhe }}</span>
+            </h1>
+            <div>
+                {% if filtro_ativo %}
+                <a href="{% url 'relatorio_vendas' periodo %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Voltar para visão geral
+                </a>
+                {% endif %}
+                <a href="{% url 'dashboard_estoque' %}" class="btn btn-dark">
+                    <i class="bi bi-grid-fill"></i> Ir para Dashboard
+                </a>
+            </div>
         </div>
 
         <!-- CARDS DE RESUMO DO PERÍODO -->
@@ -81,6 +91,30 @@
                 </div>
             </div>
         </div>
+
+        <!-- GRÁFICO CONDICIONAL DE DETALHAMENTO DO PERÍODO -->
+        {% if chart_breakdown_labels and not filtro_ativo %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header fw-bold">
+                <i class="bi bi-bar-chart-line-fill"></i> {{ chart_titulo }}
+            </div>
+            <div class="card-body">
+                <canvas id="graficoDesempenhoPeriodo"></canvas>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- NOVO GRÁFICO CONDICIONAL DE VENDAS POR HORA -->
+        {% if filtro_ativo and chart_hourly_labels %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header fw-bold">
+                <i class="bi bi-clock-history"></i> {{ chart_hourly_title }}
+            </div>
+            <div class="card-body">
+                <canvas id="graficoVendasPorHora"></canvas>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- TABELA DE VENDAS DETALHADAS -->
         <div class="card shadow-sm">
@@ -117,6 +151,89 @@
     <footer class="text-center text-muted py-4 mt-auto">
         <p>&copy; 2025 Gestor de Estoque</p>
     </footer>
+
+    {% block scripts_extra %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    {% if chart_breakdown_labels and not filtro_ativo %}
+    <script>
+        const ctxDesempenho = document.getElementById('graficoDesempenhoPeriodo');
+        const desempenhoLabels = JSON.parse('{{ chart_breakdown_labels|safe }}');
+        const desempenhoData = JSON.parse('{{ chart_breakdown_data|safe }}');
+        const currentPeriodo = '{{ periodo }}';
+
+        // Adiciona um estilo para o cursor indicar que é clicável
+        ctxDesempenho.style.cursor = 'pointer';
+
+        new Chart(ctxDesempenho, {
+            type: 'bar',
+            data: {
+                labels: desempenhoLabels,
+                datasets: [{
+                    label: 'Unidades Vendidas',
+                    data: desempenhoData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true } },
+                plugins: { legend: { display: false } },
+                // A MÁGICA ACONTECE AQUI
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const url = new URL(window.location.href);
+
+                        if (currentPeriodo === 'semana') {
+                            // O valor para o filtro de dia é o índice + 1 (Dom=1, Seg=2, ...)
+                            url.searchParams.set('dia', index + 1);
+                        } else if (currentPeriodo === 'mes') {
+                            // Pega o número da semana diretamente do label ("Semana X")
+                            const semana = desempenhoLabels[index].split(' ')[1];
+                            url.searchParams.set('semana', semana);
+                        }
+
+                        // Redireciona o usuário para a URL com o filtro
+                        window.location.href = url.toString();
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+
+    <!-- NOVO SCRIPT PARA O GRÁFICO DE VENDAS POR HORA -->
+    {% if filtro_ativo and chart_hourly_labels %}
+    <script>
+        const ctxHourly = document.getElementById('graficoVendasPorHora').getContext('2d');
+        const hourlyLabels = JSON.parse('{{ chart_hourly_labels|safe }}');
+        const hourlyData = JSON.parse('{{ chart_hourly_data|safe }}');
+
+        new Chart(ctxHourly, {
+            type: 'line', // Gráfico de linha é ótimo para ver tendências ao longo do dia
+            data: {
+                labels: hourlyLabels,
+                datasets: [{
+                    label: 'Unidades Vendidas',
+                    data: hourlyData,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    </script>
+    {% endif %}
+
+    {% endblock %}
+
 </body>
 
 </html>

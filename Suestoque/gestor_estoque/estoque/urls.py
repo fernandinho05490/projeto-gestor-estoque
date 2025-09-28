@@ -2,9 +2,10 @@
 
 from django.urls import path
 from django.contrib.auth import views as auth_views
+from . import views
 from .views import (
     dashboard_estoque, registrar_movimentacao, 
-    relatorio_vendas_view, CustomLoginView
+    relatorio_vendas_view, exportar_relatorio_pdf, CustomLoginView
 )
 
 urlpatterns = [
@@ -17,5 +18,9 @@ urlpatterns = [
     path('login/', CustomLoginView.as_view(), name='login'),
     
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+
+    path('relatorios/', views.relatorios_view, name='relatorios'),
+
+    path('relatorios/pdf/', views.exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
     # --- FIM: NOVAS URLS DE AUTENTICAÇÃO ---
 ]

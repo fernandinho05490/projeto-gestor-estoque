@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Vendas - {{ periodo_titulo }}</title>
+    <!-- (Estilos CSS continuam os mesmos) -->
+    <style>
+        @page { size: A4; margin: 1.5cm; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #333; }
+        h1, h2 { text-align: center; border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 20px; }
+        h2 { font-size: 18px; border-bottom: 1px solid #eee; }
+        .summary { display: flex; justify-content: space-around; text-align: center; margin-bottom: 30px; background-color: #f9f9f9; padding: 15px; border-radius: 5px; }
+        .summary-item h3 { margin: 0 0 5px 0; font-size: 22px; }
+        .summary-item p { margin: 0; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        thead { background-color: #f2f2f2; font-weight: bold; }
+        tbody tr:nth-child(even) { background-color: #f9f9f9; }
+        .chart-container { text-align: center; margin-bottom: 30px; }
+        .chart-container img { max-width: 90%; }
+        .footer { position: fixed; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 10px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="footer">
+        Relatório gerado pelo Gestor de Estoque em {% now "d/m/Y H:i" %}
+    </div>
+
+    <h1>Relatório de Vendas: {{ periodo_titulo }}</h1>
+
+    <!-- SEÇÃO DE RESUMO -->
+    <h2>Resumo do Período</h2>
+    <div class="summary">
+        <!-- (Código do resumo continua o mesmo) -->
+    </div>
+
+    <!-- SEÇÃO CONDICIONAL: GRÁFICOS -->
+    {% if incluir_graficos and chart_url %}
+    <div class="chart-container">
+        <h2>Top 5 Produtos Vendidos (Unidades)</h2>
+        <img src="{{ chart_url }}" alt="Gráfico de Produtos Mais Vendidos">
+    </div>
+    {% endif %}
+    
+    <!-- SEÇÃO CONDICIONAL: RANKING DE LUCRATIVIDADE -->
+    {% if incluir_ranking and top_5_lucrativos %}
+    <h2>Top 5 Produtos Mais Lucrativos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Lucro Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for produto in top_5_lucrativos %}
+            <tr>
+                <td>{{ produto.produto__nome }}</td>
+                <td>R$ {{ produto.lucro|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- SEÇÃO PRINCIPAL: VENDAS DETALHADAS -->
+    <h2>Vendas Detalhadas por Produto</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Qtd. Vendida</th>
+                <th>Faturamento</th>
+                <th>Lucro</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for venda in vendas_detalhadas %}
+            <tr>
+                <td>{{ venda.produto__nome }}</td>
+                <td>{{ venda.total_quantidade }}</td>
+                <td>R$ {{ venda.total_faturamento|floatformat:2 }}</td>
+                <td>R$ {{ venda.total_lucro|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px;">Nenhuma venda registrada neste período.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

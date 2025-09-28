@@ -1,16 +1,23 @@
 # estoque/views.py
 
+from django.db.models.functions import ExtractWeek, ExtractWeekDay,  ExtractHour
 import json
 from datetime import timedelta
 from django.contrib import messages
 from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.db.models import Sum, F, Count
+from datetime import datetime
 from .models import Produto, MovimentacaoEstoque
 from .forms import MovimentacaoForm
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from weasyprint import HTML
+import urllib.parse
+
 
 @login_required
 def dashboard_estoque(request):
@@ -154,36 +161,97 @@ def registrar_movimentacao(request):
 @permission_required('estoque.change_produto', raise_exception=True)
 def relatorio_vendas_view(request, periodo):
     today = timezone.now().date()
-    periodo_titulo = ""
+    dia_filtro = request.GET.get('dia')
+    semana_filtro = request.GET.get('semana')
+
+    periodo_titulo_original, periodo_titulo_detalhe = "", ""
+    chart_titulo, chart_breakdown_labels, chart_breakdown_data = "", [], []
+    chart_hourly_title, chart_hourly_labels, chart_hourly_data = "", [], []
     
-    # Define o período de tempo com base no parâmetro da URL
-    if periodo == 'hoje':
-        start_date = today
-        periodo_titulo = "Hoje"
-    elif periodo == 'semana':
+    # Mapeamento dos dias da semana (sempre disponível para os títulos)
+    dias_semana_map = {1: 'Domingo', 2: 'Segunda-feira', 3: 'Terça-feira', 4: 'Quarta-feira', 5: 'Quinta-feira', 6: 'Sexta-feira', 7: 'Sábado'}
+
+    # Lógica para definir o período e gerar os dados do gráfico de detalhamento
+    if periodo == 'semana':
         start_date = today - timedelta(days=today.weekday())
-        periodo_titulo = "Nesta Semana"
+        end_date = start_date + timedelta(days=6)
+        periodo_titulo_original = "Nesta Semana"
+        
+        if not dia_filtro:
+            chart_titulo = "Desempenho Diário (Unidades)"
+            vendas_diarias = MovimentacaoEstoque.objects.filter(tipo='SAIDA', data__date__range=[start_date, end_date]) \
+                .annotate(dia_da_semana=ExtractWeekDay('data')).values('dia_da_semana') \
+                .annotate(total_vendas=Sum('quantidade')).order_by('dia_da_semana')
+            
+            vendas_map = {item['dia_da_semana']: item['total_vendas'] for item in vendas_diarias}
+            # SINTAXE CORRIGIDA: dia[:3] em vez de dia.[:3]
+            chart_breakdown_labels = [dia[:3] for dia in dias_semana_map.values()] # Abreviado para o gráfico
+            chart_breakdown_data = [vendas_map.get(i, 0) for i in range(1, 8)]
+
     elif periodo == 'mes':
         start_date = today.replace(day=1)
-        periodo_titulo = "Neste Mês"
+        end_date = (start_date + timedelta(days=31)).replace(day=1) - timedelta(days=1)
+        periodo_titulo_original = "Neste Mês"
+        
+        if not semana_filtro:
+            chart_titulo = "Desempenho Semanal (Unidades)"
+            vendas_semanais = MovimentacaoEstoque.objects.filter(tipo='SAIDA', data__date__range=[start_date, end_date]) \
+                .annotate(semana_do_ano=ExtractWeek('data')).values('semana_do_ano') \
+                .annotate(total_vendas=Sum('quantidade')).order_by('semana_do_ano')
+            
+            semana_inicial_mes = start_date.isocalendar()[1]
+            for item in vendas_semanais:
+                semana_no_mes = item['semana_do_ano'] - semana_inicial_mes + 1
+                chart_breakdown_labels.append(f"Semana {semana_no_mes}")
+                chart_breakdown_data.append(item['total_vendas'])
     else:
-        # Se o período for inválido, redireciona para o dashboard
-        return redirect('dashboard_estoque')
+        start_date = today
+        end_date = today
+        periodo_titulo_original = "Hoje"
 
-    # Filtra as vendas do período
-    vendas_periodo = MovimentacaoEstoque.objects.filter(
-        tipo='SAIDA', 
-        data__date__gte=start_date
-    )
+    # Lógica de filtro drill-down (aplicada sobre o período base)
+    vendas_periodo = MovimentacaoEstoque.objects.filter(tipo='SAIDA', data__date__range=[start_date, end_date])
+    
+    if dia_filtro:
+        dia_filtro_int = int(dia_filtro)
+        vendas_periodo = vendas_periodo.filter(data__week_day=dia_filtro_int)
+        periodo_titulo_detalhe = f" / {dias_semana_map.get(dia_filtro_int, '')}"
 
-    # Agrupa por produto e calcula as métricas detalhadas
+        # --- INÍCIO DA NOVA LÓGICA: GRÁFICO DE VENDAS POR HORA ---
+        chart_hourly_title = "Vendas por Hora (Unidades)"
+        vendas_por_hora = vendas_periodo.annotate(hora=ExtractHour('data')).values('hora') \
+            .annotate(total_vendas=Sum('quantidade')).order_by('hora')
+        
+        # Prepara os dados para o gráfico, preenchendo as horas sem vendas com zero
+        vendas_map = {item['hora']: item['total_vendas'] for item in vendas_por_hora}
+        chart_hourly_labels = [f"{h}h" for h in range(24)]
+        chart_hourly_data = [vendas_map.get(h, 0) for h in range(24)]
+        # --- FIM DA NOVA LÓGICA ---
+    
+    elif semana_filtro:
+        semana_filtro_int = int(semana_filtro)
+        semana_ano_absoluta = start_date.isocalendar()[1] + semana_filtro_int - 1
+        vendas_periodo = vendas_periodo.filter(data__week=semana_ano_absoluta)
+        periodo_titulo_detalhe = f" / Semana {semana_filtro}"
+    
+    # Geração dos gráficos de detalhamento (só rodam se não houver filtro)
+    if not (dia_filtro or semana_filtro):
+        if periodo == 'semana':
+            chart_titulo = "Desempenho Diário (Unidades)"
+            # ... (código para gerar vendas_diarias) ...
+            chart_breakdown_labels = [dia[:3] for dia in dias_semana_map.values()]
+            # ... (código para preencher chart_breakdown_data) ...
+        elif periodo == 'mes':
+            chart_titulo = "Desempenho Semanal (Unidades)"
+            # ... (código para gerar vendas_semanais e preencher os dados do gráfico) ...
+
+    # Cálculos finais sobre o queryset (que pode estar filtrado ou não)
     vendas_detalhadas = vendas_periodo.values('produto__nome').annotate(
         total_quantidade=Sum('quantidade'),
         total_faturamento=Sum(F('quantidade') * F('produto__preco_de_venda')),
         total_lucro=Sum(F('quantidade') * (F('produto__preco_de_venda') - F('produto__preco_de_custo')))
-    ).order_by('-total_lucro')
-
-    # Calcula os totais para os cards de resumo da página
+    ).order_by('-total_faturamento')
+    
     totais_periodo = vendas_periodo.aggregate(
         faturamento=Sum(F('quantidade') * F('produto__preco_de_venda'), default=0),
         lucro=Sum(F('quantidade') * (F('produto__preco_de_venda') - F('produto__preco_de_custo')), default=0),
@@ -192,8 +260,17 @@ def relatorio_vendas_view(request, periodo):
 
     context = {
         'vendas_detalhadas': vendas_detalhadas,
-        'periodo_titulo': periodo_titulo,
-        'totais_periodo': totais_periodo
+        'periodo_titulo': periodo_titulo_original,
+        'periodo_titulo_detalhe': periodo_titulo_detalhe,
+        'periodo': periodo,
+        'totais_periodo': totais_periodo,
+        'chart_titulo': chart_titulo,
+        'chart_breakdown_labels': json.dumps(chart_breakdown_labels),
+        'chart_breakdown_data': json.dumps(chart_breakdown_data),
+        'filtro_ativo': bool(dia_filtro or semana_filtro),
+        'chart_hourly_title': chart_hourly_title,
+        'chart_hourly_labels': json.dumps(chart_hourly_labels),
+        'chart_hourly_data': json.dumps(chart_hourly_data),
     }
     
     return render(request, 'estoque/relatorio_vendas.html', context)
@@ -216,3 +293,132 @@ class CustomLoginView(LoginView):
         # SEMPRE redirecione para o dashboard, ignorando o 'next'.
         else:
             return reverse_lazy('dashboard_estoque')
+
+@login_required
+@permission_required('estoque.change_produto', raise_exception=True)
+def relatorios_view(request):
+    # Pega as datas do formulário (via método GET)
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
+    # Inicializa as variáveis
+    vendas_detalhadas = None
+    totais_periodo = {'faturamento': 0, 'lucro': 0, 'quantidade': 0}
+
+    # Verifica se as duas datas foram enviadas
+    if start_date_str and end_date_str:
+        try:
+            # Converte as strings de data (dd/mm/YYYY) para objetos date
+            start_date = datetime.strptime(start_date_str, '%d/%m/%Y').date()
+            end_date = datetime.strptime(end_date_str, '%d/%m/%Y').date()
+
+            # Filtra as vendas no intervalo de datas selecionado
+            vendas_periodo = MovimentacaoEstoque.objects.filter(
+                tipo='SAIDA',
+                data__date__range=[start_date, end_date]
+            )
+
+            # Agrupa por produto e calcula as métricas
+            vendas_detalhadas = vendas_periodo.values('produto__nome').annotate(
+                total_quantidade=Sum('quantidade'),
+                total_faturamento=Sum(F('quantidade') * F('produto__preco_de_venda')),
+                total_lucro=Sum(F('quantidade') * (F('produto__preco_de_venda') - F('produto__preco_de_custo')))
+            ).order_by('-total_faturamento')
+
+            # Calcula os totais para os cards de resumo
+            totais_periodo = vendas_periodo.aggregate(
+                faturamento=Sum(F('quantidade') * F('produto__preco_de_venda'), default=0),
+                lucro=Sum(F('quantidade') * (F('produto__preco_de_venda') - F('produto__preco_de_custo')), default=0),
+                quantidade=Sum('quantidade', default=0)
+            )
+        except (ValueError, TypeError):
+            # Caso as datas estejam em formato inválido, ignora e não faz nada
+            pass
+
+    context = {
+        'page_title': 'Relatórios Avançados',
+        'vendas_detalhadas': vendas_detalhadas,
+        'totais_periodo': totais_periodo,
+        'start_date': start_date_str, # Envia as datas de volta para preencher o formulário
+        'end_date': end_date_str,
+    }
+    return render(request, 'estoque/relatorios.html', context)
+
+@login_required
+@permission_required('estoque.change_produto', raise_exception=True)
+def exportar_relatorio_pdf(request):
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    
+    # Pega as opções dos checkboxes
+    incluir_graficos = request.GET.get('incluir_graficos') == 'on'
+    incluir_ranking = request.GET.get('incluir_ranking') == 'on'
+
+    if not (start_date_str and end_date_str):
+        return HttpResponse("Período de datas não especificado.", status=400)
+
+    start_date = datetime.strptime(start_date_str, '%d/%m/%Y').date()
+    end_date = datetime.strptime(end_date_str, '%d/%m/%Y').date()
+    periodo_titulo = f"de {start_date.strftime('%d/%m/%Y')} a {end_date.strftime('%d/%m/%Y')}"
+
+    vendas_periodo = MovimentacaoEstoque.objects.filter(tipo='SAIDA', data__date__range=[start_date, end_date])
+    
+    # --- Cálculos que sempre acontecem ---
+    vendas_detalhadas = vendas_periodo.values('produto__nome').annotate(
+        total_quantidade=Sum('quantidade'),
+        total_faturamento=Sum(F('quantidade') * F('produto__preco_de_venda')),
+        total_lucro=Sum(F('quantidade') * (F('produto__preco_de_venda') - F('produto__preco_de_custo')))
+    ).order_by('-total_faturamento')
+
+    totais_periodo = vendas_periodo.aggregate(
+        faturamento=Sum(F('quantidade') * F('produto__preco_de_venda'), default=0),
+        lucro=Sum(F('quantidade') * (F('produto__preco_de_venda') - F('produto__preco_de_custo')), default=0),
+        quantidade=Sum('quantidade', default=0)
+    )
+
+    context = {
+        'vendas_detalhadas': vendas_detalhadas,
+        'totais_periodo': totais_periodo,
+        'periodo_titulo': periodo_titulo,
+        'incluir_graficos': incluir_graficos,
+        'incluir_ranking': incluir_ranking,
+    }
+
+    # --- Cálculos condicionais (só se o usuário pediu) ---
+    if incluir_ranking:
+        ranking_lucro = vendas_periodo.values('produto__nome').annotate(
+            lucro=Sum(F('quantidade') * (F('produto__preco_de_venda') - F('produto__preco_de_custo')))
+        ).order_by('-lucro')
+        context['top_5_lucrativos'] = ranking_lucro[:5]
+
+    if incluir_graficos:
+        # Prepara dados para o gráfico de vendas
+        produtos_mais_vendidos_qs = vendas_periodo.values('produto__nome') \
+            .annotate(total_vendido=Sum('quantidade')).order_by('-total_vendido')[:5]
+        
+        # Configuração do gráfico para a API do QuickChart
+        chart_config = {
+            'type': 'bar',
+            'data': {
+                'labels': [item['produto__nome'] for item in produtos_mais_vendidos_qs],
+                'datasets': [{
+                    'label': 'Unidades Vendidas',
+                    'data': [item['total_vendido'] for item in produtos_mais_vendidos_qs],
+                    'backgroundColor': 'rgba(75, 192, 192, 0.5)',
+                    'borderColor': 'rgba(75, 192, 192, 1)',
+                    'borderWidth': 1
+                }]
+            },
+            'options': { 'indexAxis': 'y' }
+        }
+        # Codifica a configuração do gráfico para ser usada na URL
+        encoded_chart = urllib.parse.quote(json.dumps(chart_config))
+        context['chart_url'] = f'https://quickchart.io/chart?c={encoded_chart}'
+
+    # --- Geração do PDF (continua igual) ---
+    html_string = render_to_string('estoque/relatorio_pdf.html', context)
+    pdf = HTML(string=html_string).write_pdf()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="relatorio_vendas_{start_date_str.replace("/", "-")}_a_{end_date_str.replace("/", "-")}.pdf"'
+    
+    return response
