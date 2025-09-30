@@ -1,26 +1,42 @@
-# estoque/urls.py 
-
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from . import views
 from .views import (
-    dashboard_estoque, registrar_movimentacao, 
-    relatorio_vendas_view, exportar_relatorio_pdf, CustomLoginView
+    dashboard_estoque, 
+    registrar_movimentacao, 
+    relatorio_vendas_view, 
+    CustomLoginView,
+    relatorios_view,
+    exportar_relatorio_pdf,
+    search_view,
+    compras_view,
+    gerar_ordem_de_compra,
+    ordem_compra_list_view,
+    ordem_compra_detail_view,
+    ordem_compra_receber_view,
 )
 
 urlpatterns = [
-    # A URL '' corresponde à raiz do site (página inicial)
+    # URLs do sistema
     path('', dashboard_estoque, name='dashboard_estoque'),
-    path('registrar_movimentacao/', registrar_movimentacao, name='registrar_movimentacao'),
-    path('relatorio/vendas/<str:periodo>/', relatorio_vendas_view, name='relatorio_vendas'),
-
-    # --- INÍCIO: NOVAS URLS DE AUTENTICAÇÃO ---
-    path('login/', CustomLoginView.as_view(), name='login'),
+    path('search/', search_view, name='search_results'),
     
+    # URL de Movimentação (A que estava causando o erro)
+    path('movimentacao/registrar/', registrar_movimentacao, name='registrar_movimentacao'),
+
+    # URLs de Compras
+    path('compras/', compras_view, name='compras'),
+    path('compras/gerar/', gerar_ordem_de_compra, name='gerar_ordem_de_compra'),
+    path('compras/ordens/', ordem_compra_list_view, name='ordem_compra_list'),
+    path('compras/ordens/<int:pk>/', ordem_compra_detail_view, name='ordem_compra_detail'),
+    path('compras/ordens/<int:pk>/receber/', ordem_compra_receber_view, name='ordem_compra_receber'),
+
+    # URLs de Relatórios
+    path('relatorios/', relatorios_view, name='relatorios'),
+    path('relatorio/vendas/<str:periodo>/', relatorio_vendas_view, name='relatorio_vendas'),
+    path('relatorios/pdf/', exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
+    
+    # URLs de Autenticação
+    path('login/', CustomLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-
-    path('relatorios/', views.relatorios_view, name='relatorios'),
-
-    path('relatorios/pdf/', views.exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
-    # --- FIM: NOVAS URLS DE AUTENTICAÇÃO ---
 ]
+

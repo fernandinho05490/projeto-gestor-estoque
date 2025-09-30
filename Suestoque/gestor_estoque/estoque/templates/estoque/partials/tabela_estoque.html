@@ -1,0 +1,36 @@
+<table class="table table-hover mb-0 align-middle">
+    <thead class="table-light">
+        <tr>
+            <th scope="col">Status</th>
+            <th scope="col">Variação do Produto</th>
+            <th scope="col">Categoria</th>
+            <th scope="col" class="text-center">Estoque Atual</th>
+            <th scope="col" class="text-end">Preço de Venda</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for variacao in variacoes %}
+        {% with status=variacao.get_status_estoque %}
+        <tr class="
+            {% if status == 'PERIGO' %}table-danger-subtle{% endif %}
+            {% if status == 'ATENCAO' %}table-warning-subtle{% endif %}
+        ">
+            <td>
+                {% if status == 'PERIGO' %}<span class="badge bg-danger-subtle text-danger-emphasis">Repor Urgente</span>
+                {% elif status == 'ATENCAO' %}<span class="badge bg-warning-subtle text-warning-emphasis">Atenção</span>
+                {% else %}<span class="badge bg-success-subtle text-success-emphasis">OK</span>
+                {% endif %}
+            </td>
+            <td>{{ variacao }}</td>
+            <td>{{ variacao.produto.categoria.nome|default:"-" }}</td>
+            <td class="text-center fw-bold">{{ variacao.quantidade_em_estoque }}</td>
+            <td class="text-end">R$ {{ variacao.preco_de_venda|floatformat:2 }}</td>
+        </tr>
+        {% endwith %}
+        {% empty %}
+        <tr>
+            <td colspan="5" class="text-center py-5 text-secondary">Nenhuma variação de produto cadastrada.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

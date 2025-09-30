@@ -1,0 +1,79 @@
+{% extends 'estoque/base.html' %}
+
+{% block title %}Detalhes do Pedido #{{ ordem.id }}{% endblock %}
+
+{% block content %}
+<!-- CABEÇALHO DA PÁGINA -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">Pedido <span class="text-primary">#{{ ordem.id }}</span></h1>
+        <p class="text-secondary">Detalhes da ordem de compra para {{ ordem.fornecedor.nome }}.</p>
+    </div>
+    <a href="{% url 'ordem_compra_list' %}" class="btn btn-dark">
+        <i class="bi bi-arrow-left"></i> Voltar para a Lista
+    </a>
+</div>
+
+<!-- INFORMAÇÕES GERAIS E AÇÕES -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="card-title">Informações Gerais</h5>
+                <p class="card-text mb-1"><strong class="text-secondary">Fornecedor:</strong> {{ ordem.fornecedor.nome }}</p>
+                <p class="card-text mb-1"><strong class="text-secondary">Data de Criação:</strong> {{ ordem.data_criacao|date:"d/m/Y \à\s H:i" }}</p>
+                <p class="card-text mb-1"><strong class="text-secondary">Status:</strong> 
+                    {% if ordem.status == 'PENDENTE' %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis">{{ ordem.get_status_display }}</span>
+                    {% elif ordem.status == 'ENVIADA' %}
+                        <span class="badge bg-info-subtle text-info-emphasis">{{ ordem.get_status_display }}</span>
+                    {% elif ordem.status == 'RECEBIDA' %}
+                        <span class="badge bg-success-subtle text-success-emphasis">{{ ordem.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ ordem.get_status_display }}</span>
+                    {% endif %}
+                </p>
+                <p class="card-text"><strong class="text-secondary">Custo Total:</strong> <span class="fw-bold">R$ {{ ordem.get_custo_total|floatformat:2 }}</span></p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                {% if ordem.status != 'RECEBIDA' and ordem.status != 'CANCELADA' %}
+                <form action="{% url 'ordem_compra_receber' ordem.id %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-lg shadow-sm">
+                        <i class="bi bi-box-arrow-in-down-fill"></i> Marcar como Recebida
+                    </button>
+                    <small class="d-block text-secondary mt-2">Esta ação dará entrada dos itens no estoque.</small>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA DE ITENS NO PEDIDO -->
+<div class="card shadow-sm">
+    <div class="card-header fw-bold">Itens do Pedido</div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Variação do Produto</th>
+                    <th scope="col" class="text-center">Quantidade Pedida</th>
+                    <th scope="col" class="text-end">Custo Unitário</th>
+                    <th scope="col" class="text-end">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in itens %}
+                <tr>
+                    <td>{{ item.variacao }}</td>
+                    <td class="text-center">{{ item.quantidade }}</td>
+                    <td class="text-end">R$ {{ item.custo_unitario|floatformat:2 }}</td>
+                    <td class="text-end fw-bold">R$ {{ item.get_subtotal|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

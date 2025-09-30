@@ -1,0 +1,86 @@
+{% extends 'estoque/base.html' %}
+
+{% block title %}Gestão de Compras{% endblock %}
+
+{% block content %}
+<!-- CABEÇALHO DA PÁGINA -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">Gestão de Compras</h1>
+        <p class="text-secondary">Itens que precisam de reposição e ordens de compra.</p>
+    </div>
+    <!-- INÍCIO DA CORREÇÃO: O link agora aponta para a nossa página personalizada -->
+    <a href="{% url 'ordem_compra_list' %}" class="btn btn-dark">
+        <i class="bi bi-card-list"></i> Ver Ordens de Compra
+    </a>
+    <!-- FIM DA CORREÇÃO -->
+</div>
+
+<!-- FORMULÁRIO ENVOLVENDO A TABELA -->
+<form action="{% url 'gerar_ordem_de_compra' %}" method="post">
+    {% csrf_token %}
+    <div class="card shadow-sm">
+        <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+            <span>
+                <i class="bi bi-exclamation-triangle-fill text-danger"></i> Lista de Reposição Inteligente
+            </span>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-send-plus-fill"></i> Gerar Ordens para Itens Selecionados
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" class="text-center" style="width: 50px;">
+                            <input class="form-check-input" type="checkbox" id="selectAll" title="Selecionar Todos">
+                        </th>
+                        <th scope="col">Variação do Produto</th>
+                        <th scope="col">Fornecedor</th>
+                        <th scope="col" class="text-center">Estoque Atual</th>
+                        <th scope="col" class="text-center">Qtd. a Comprar (Sugestão)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for variacao in variacoes_para_repor %}
+                    <tr>
+                        <td class="text-center">
+                            <input class="form-check-input item-checkbox" type="checkbox" name="variacao_id" value="{{ variacao.id }}">
+                        </td>
+                        <td>{{ variacao }}</td>
+                        <td>{{ variacao.produto.fornecedor.nome|default:"-" }}</td>
+                        <td class="text-center fw-bold text-danger">{{ variacao.quantidade_em_estoque }}</td>
+                        <td class="text-center fw-bold text-primary">{{ variacao.quantidade_a_comprar }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-secondary">
+                            <i class="bi bi-check-circle-fill fs-1 text-success"></i>
+                            <p class="mt-2 mb-0">Nenhum item precisa de reposição no momento. <br> Bom trabalho!</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    // Script para o checkbox "Selecionar Todos"
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectAllCheckbox = document.getElementById('selectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('click', function(event) {
+                const checkboxes = document.querySelectorAll('.item-checkbox');
+                for (const checkbox of checkboxes) {
+                    checkbox.checked = event.target.checked;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+

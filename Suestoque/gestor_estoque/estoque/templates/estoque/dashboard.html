@@ -1,7 +1,9 @@
 {% extends 'estoque/base.html' %}
 
+{% block title %}Dashboard{% endblock %}
+
 {% block content %}
-<!-- ÁREA PARA EXIBIR MENSAGENS DE SUCESSO OU ERRO -->
+<!-- ÁREA DE MENSAGENS -->
 {% if messages %}
     {% for message in messages %}
     <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
@@ -20,51 +22,48 @@
 </div>
 
 <!-- SEÇÃO 1: RESUMO GERAL -->
-{% if perms.estoque.change_produto %}
+{% if perms.estoque.change_variacao %}
 <h2 class="h5 section-title">Resumo Geral</h2>
 <div class="row g-4 mb-5">
+    <!-- Cards de Faturamento, Lucro, Inventário, Reposição -->
     <div class="col-lg-3 col-md-6">
-        <div class="card text-bg-success h-100 shadow-sm">
+        <div class="card h-100 shadow-sm">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
-                    <h5 class="card-title">R$ {{ faturamento_total|floatformat:2 }}</h5>
-                    <p class="card-text mb-0">Faturamento Total</p>
+                    <h5 class="card-title text-success">R$ {{ faturamento_total|floatformat:2 }}</h5>
+                    <p class="card-text mb-0 text-secondary">Faturamento Total</p>
                 </div>
-                <i class="bi bi-graph-up card-metric"></i>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6">
-        <div class="card text-bg-info h-100 shadow-sm">
+        <div class="card h-100 shadow-sm">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
-                    <h5 class="card-title">R$ {{ lucro_total|floatformat:2 }}</h5>
-                    <p class="card-text mb-0">Lucro Total</p>
+                    <h5 class="card-title text-info">R$ {{ lucro_total|floatformat:2 }}</h5>
+                    <p class="card-text mb-0 text-secondary">Lucro Total</p>
                 </div>
-                <i class="bi bi-gem card-metric"></i>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6">
-        <div class="card text-bg-primary h-100 shadow-sm">
+        <div class="card h-100 shadow-sm">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
-                    <h5 class="card-title">R$ {{ total_inventory_value|floatformat:2 }}</h5>
-                    <p class="card-text mb-0">Valor do Inventário</p>
+                    <h5 class="card-title text-primary">R$ {{ total_inventory_value|floatformat:2 }}</h5>
+                    <p class="card-text mb-0 text-secondary">Valor do Inventário</p>
                 </div>
-                <i class="bi bi-boxes card-metric"></i>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6">
         <a href="?filtro=perigo" class="card-link">
-            <div class="card text-bg-danger h-100 card-clickable shadow-sm">
+            <div class="card h-100 card-clickable shadow-sm">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="card-title">{{ produtos_perigo_count }} / {{ total_produtos }}</h5>
-                        <p class="card-text mb-0">Reposição Urgente</p>
+                        <h5 class="card-title text-danger">{{ produtos_perigo_count }} / {{ total_produtos }}</h5>
+                        <p class="card-text mb-0 text-secondary">Variações em Alerta</p>
                     </div>
-                    <i class="bi bi-exclamation-triangle-fill card-metric"></i>
                 </div>
             </div>
         </a>
@@ -75,75 +74,7 @@
 <!-- SEÇÃO 2: DESEMPENHO POR PERÍODO -->
 <h2 class="h5 section-title">Desempenho por Período</h2>
 <div class="row g-4 mb-5">
-    <!-- Card de Hoje -->
-    <div class="col-md-4">
-        <a href="{% url 'relatorio_vendas' 'hoje' %}" class="card-link">
-            <div class="card h-100 shadow-sm card-clickable">
-                <div class="card-header text-center fw-bold">Hoje</div>
-                <div class="card-body text-center">
-                    <h3 class="card-title">{{ metricas_hoje.quantidade }}</h3>
-                    <p class="card-text text-muted mb-2">Unidades Vendidas</p>
-                    <hr>
-                    <div class="d-flex justify-content-around">
-                        <div>
-                            <small class="text-muted d-block">Faturamento</small>
-                            <h5 class="text-success mb-0">R$ {{ metricas_hoje.faturamento|floatformat:2 }}</h5>
-                        </div>
-                        <div>
-                            <small class="text-muted d-block">Lucro</small>
-                            <h5 class="text-info mb-0">R$ {{ metricas_hoje.lucro|floatformat:2 }}</h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
-    <!-- Card da Semana -->
-    <div class="col-md-4">
-        <a href="{% url 'relatorio_vendas' 'semana' %}" class="card-link">
-            <div class="card h-100 shadow-sm card-clickable">
-                <div class="card-header text-center fw-bold">Nesta Semana</div>
-                <div class="card-body text-center">
-                    <h3 class="card-title">{{ metricas_semana.quantidade }}</h3>
-                    <p class="card-text text-muted mb-2">Unidades Vendidas</p>
-                    <hr>
-                    <div class="d-flex justify-content-around">
-                        <div>
-                            <small class="text-muted d-block">Faturamento</small>
-                            <h5 class="text-success mb-0">R$ {{ metricas_semana.faturamento|floatformat:2 }}</h5>
-                        </div>
-                        <div>
-                            <small class="text-muted d-block">Lucro</small>
-                            <h5 class="text-info mb-0">R$ {{ metricas_semana.lucro|floatformat:2 }}</h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
-    <!-- Card do Mês -->
-    <div class="col-md-4">
-        <a href="{% url 'relatorio_vendas' 'mes' %}" class="card-link">
-            <div class="card h-100 shadow-sm card-clickable">
-                <div class="card-header text-center fw-bold">Neste Mês</div>
-                <div class="card-body text-center">
-                    <h3 class="card-title">{{ metricas_mes.quantidade }}</h3>
-                    <p class="card-text text-muted mb-2">Unidades Vendidas</p>
-                    <hr>
-                    <div class="d-flex justify-content-around">
-                        <div>
-                            <small class="text-muted d-block">Faturamento</small>
-                            <h5 class="text-success mb-0">R$ {{ metricas_mes.faturamento|floatformat:2 }}</h5>
-                        </div>
-                        <div>
-                            <small class="text-muted d-block">Lucro</small>
-                            <h5 class="text-info mb-0">R$ {{ metricas_mes.lucro|floatformat:2 }}</h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
+    {% include 'estoque/partials/cards_desempenho.html' %}
 </div>
 
 <!-- SEÇÃO 3: ANÁLISE VISUAL -->
@@ -151,68 +82,42 @@
 <div class="row g-4 mb-5">
     <div class="col-lg-6">
         <div class="card h-100 shadow-sm">
-            <div class="card-header"><i class="bi bi-bar-chart-line-fill"></i> Top 5 Produtos Mais Vendidos (Unidades)</div>
-            <div class="card-body"><canvas id="graficoMaisVendidos"></canvas></div>
+            <div class="card-header"><i class="bi bi-bar-chart-line-fill"></i> Top 5 Variações Mais Vendidas</div>
+            <div class="card-body">
+                <canvas id="chartMaisVendidas" data-labels="{{ chart_mais_vendidos_labels }}" data-values="{{ chart_mais_vendidos_data }}"></canvas>
+            </div>
         </div>
     </div>
     <div class="col-lg-3">
         <div class="card h-100 shadow-sm">
             <div class="card-header"><i class="bi bi-pie-chart-fill"></i> Valor por Categoria</div>
-            <div class="card-body"><canvas id="graficoValorCategoria"></canvas></div>
+            <div class="card-body">
+                <canvas id="chartValorCategoria" data-labels="{{ chart_valor_categoria_labels }}" data-values="{{ chart_valor_categoria_data }}"></canvas>
+            </div>
         </div>
     </div>
     <div class="col-lg-3">
         <div class="card h-100 shadow-sm">
             <div class="card-header"><i class="bi bi-pie-chart-fill"></i> Status do Estoque</div>
-            <div class="card-body"><canvas id="graficoStatusEstoque"></canvas></div>
+            <div class="card-body">
+                <canvas id="chartStatusEstoque" data-labels="{{ chart_status_labels }}" data-values="{{ chart_status_data }}"></canvas>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- SEÇÃO 4: ANÁLISE DE LUCRATIVIDADE -->
-{% if perms.estoque.change_produto %}
-<h2 class="h5 section-title">Análise de Lucratividade</h2>
-<div class="row g-4 mb-5">
-    <div class="col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-header fw-bold text-success"><i class="bi bi-trophy-fill"></i> Top 5 Produtos Mais Lucrativos</div>
-            <ul class="list-group list-group-flush">
-                {% for produto in top_5_lucrativos %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    {{ produto.produto__nome }}
-                    <span class="badge bg-success rounded-pill">R$ {{ produto.lucro|floatformat:2 }}</span>
-                </li>
-                {% empty %}
-                <li class="list-group-item">Nenhuma venda registrada ainda.</li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-header fw-bold text-danger"><i class="bi bi-graph-down-arrow"></i> Top 5 Produtos Menos Lucrativos</div>
-            <ul class="list-group list-group-flush">
-                {% for produto in piores_5_lucrativos %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    {{ produto.produto__nome }}
-                    <span class="badge bg-danger rounded-pill">R$ {{ produto.lucro|floatformat:2 }}</span>
-                </li>
-                {% empty %}
-                <li class="list-group-item">Nenhuma venda registrada ainda.</li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-</div>
+{% if perms.estoque.change_variacao %}
+    {% include 'estoque/partials/rankings_lucratividade.html' %}
 {% endif %}
 
 <!-- SEÇÃO 5: ESTOQUE DETALHADO -->
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h2 class="h5 section-title mb-0">
         {% if filtro_status == 'perigo' %}
-            Mostrando Apenas Itens com Reposição Urgente
+            Mostrando Apenas Variações com Reposição Urgente
         {% else %}
-            Situação Detalhada do Estoque
+            Situação Detalhada do Estoque por Variação
         {% endif %}
     </h2>
     {% if filtro_status %}
@@ -221,149 +126,80 @@
 </div>
 <div class="card shadow-sm">
     <div class="table-responsive">
-        <table class="table table-striped table-hover mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th>Status</th>
-                    <th>Produto</th>
-                    <th>Categoria</th>
-                    <th>Estoque Atual</th>
-                    <th>Estoque Mínimo</th>
-                    <th>Preço de Custo</th>
-                    <th>Preço de Venda</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for produto in produtos %}
-                {% with status=produto.get_status_estoque %}
-                <tr class="
-                    {% if status == 'PERIGO' %}table-danger{% endif %}
-                    {% if status == 'ATENCAO' %}table-warning{% endif %}
-                ">
-                    <td>
-                        {% if status == 'PERIGO' %}<span class="badge bg-danger">Repor Urgente</span>
-                        {% elif status == 'ATENCAO' %}<span class="badge bg-warning text-dark">Atenção</span>
-                        {% else %}<span class="badge bg-success">OK</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ produto.nome }}</td>
-                    <td>{{ produto.categoria.nome|default:"Sem Categoria" }}</td>
-                    <td><strong>{{ produto.quantidade_em_estoque }}</strong></td>
-                    <td>{{ produto.estoque_minimo }}</td>
-                    <td>R$ {{ produto.preco_de_custo|floatformat:2 }}</td>
-                    <td>R$ {{ produto.preco_de_venda|floatformat:2 }}</td>
-                </tr>
-                {% endwith %}
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center py-4">Nenhum produto cadastrado.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% include 'estoque/partials/tabela_estoque.html' %}
     </div>
 </div>
 
 <!-- Modal de Movimentação -->
-<div class="modal fade" id="movimentacaoModal" tabindex="-1" aria-labelledby="movimentacaoModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h1 class="modal-title fs-5" id="movimentacaoModalLabel">Registrar Nova Movimentação</h1>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{% url 'registrar_movimentacao' %}" method="post">
-                {% csrf_token %}
-                <div class="modal-body">
-                    {{ form_movimentacao.as_p }}
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{% include 'estoque/partials/modal_movimentacao.html' %}
 {% endblock %}
 
 
 {% block scripts_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
-    // Função para gerar cores aleatórias para os gráficos
-    const generateRandomColors = (numColors) => {
-        const colors = [];
-        for (let i = 0; i < numColors; i++) {
-            const r = Math.floor(Math.random() * 200);
-            const g = Math.floor(Math.random() * 200);
-            const b = Math.floor(Math.random() * 200);
-            colors.push(`rgba(${r}, ${g}, ${b}, 0.7)`);
-        }
-        return colors;
-    };
+    document.addEventListener('DOMContentLoaded', () => {
+        let chartMaisVendidas, chartValorCategoria, chartStatusEstoque;
 
-    // 1. Gráfico de Mais Vendidos (Gráfico de Barras)
-    const ctxMaisVendidos = document.getElementById('graficoMaisVendidos').getContext('2d');
-    const maisVendidosLabels = JSON.parse('{{ chart_mais_vendidos_labels|safe }}');
-    const maisVendidosData = JSON.parse('{{ chart_mais_vendidos_data|safe }}');
+        const updateChartTheme = () => {
+            const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            const fontColor = isDarkMode ? '#adb5bd' : '#495057';
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
 
-    new Chart(ctxMaisVendidos, {
-        type: 'bar',
-        data: {
-            labels: maisVendidosLabels,
-            datasets: [{
-                label: 'Unidades Vendidas',
-                data: maisVendidosData,
-                backgroundColor: generateRandomColors(maisVendidosData.length),
-                borderWidth: 1
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            scales: { x: { beginAtZero: true } },
-            plugins: { legend: { display: false } }
-        }
-    });
+            Chart.defaults.color = fontColor;
+            
+            if (chartMaisVendidas) {
+                chartMaisVendidas.options.scales.x.ticks.color = fontColor;
+                chartMaisVendidas.options.scales.y.ticks.color = fontColor;
+                chartMaisVendidas.options.scales.x.grid.color = gridColor;
+                chartMaisVendidas.update();
+            }
+            if (chartValorCategoria) {
+                chartValorCategoria.options.plugins.legend.labels.color = fontColor;
+                chartValorCategoria.update();
+            }
+            if (chartStatusEstoque) {
+                chartStatusEstoque.options.plugins.legend.labels.color = fontColor;
+                chartStatusEstoque.update();
+            }
+        };
 
-    // 2. Gráfico de Valor por Categoria (Gráfico de Pizza)
-    const ctxValorCategoria = document.getElementById('graficoValorCategoria').getContext('2d');
-    const valorCategoriaLabels = JSON.parse('{{ chart_valor_categoria_labels|safe }}');
-    const valorCategoriaData = JSON.parse('{{ chart_valor_categoria_data|safe }}');
+        const initCharts = () => {
+            const ctxMaisVendidas = document.getElementById('chartMaisVendidas');
+            if (ctxMaisVendidas) {
+                const labels = JSON.parse(ctxMaisVendidas.dataset.labels);
+                const values = JSON.parse(ctxMaisVendidas.dataset.values);
+                chartMaisVendidas = new Chart(ctxMaisVendidas, {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Unidades Vendidas', data: values, backgroundColor: 'rgba(0, 122, 255, 0.7)', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                });
+            }
 
-    new Chart(ctxValorCategoria, {
-        type: 'doughnut',
-        data: {
-            labels: valorCategoriaLabels,
-            datasets: [{
-                label: 'Valor em R$',
-                data: valorCategoriaData,
-                backgroundColor: generateRandomColors(valorCategoriaData.length),
-                hoverOffset: 4
-            }]
-        }
-    });
+            const ctxValorCategoria = document.getElementById('chartValorCategoria');
+            if(ctxValorCategoria) {
+                const labels = JSON.parse(ctxValorCategoria.dataset.labels);
+                const values = JSON.parse(ctxValorCategoria.dataset.values);
+                chartValorCategoria = new Chart(ctxValorCategoria, {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ label: 'Valor em R$', data: values, backgroundColor: ['rgba(0, 122, 255, 0.7)', 'rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)'], hoverOffset: 4 }] }
+                });
+            }
 
-    // 3. Gráfico de Status do Estoque (Gráfico de Pizza)
-    const ctxStatusEstoque = document.getElementById('graficoStatusEstoque').getContext('2d');
-    const statusEstoqueLabels = JSON.parse('{{ chart_status_labels|safe }}');
-    const statusEstoqueData = JSON.parse('{{ chart_status_data|safe }}');
+            const ctxStatusEstoque = document.getElementById('chartStatusEstoque');
+            if (ctxStatusEstoque) {
+                const labels = JSON.parse(ctxStatusEstoque.dataset.labels);
+                const values = JSON.parse(ctxStatusEstoque.dataset.values);
+                chartStatusEstoque = new Chart(ctxStatusEstoque, {
+                    type: 'pie',
+                    data: { labels, datasets: [{ label: 'Nº de Itens', data: values, backgroundColor: ['rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)', 'rgba(220, 53, 69, 0.7)'], hoverOffset: 4 }] }
+                });
+            }
+            updateChartTheme();
+        };
 
-    new Chart(ctxStatusEstoque, {
-        type: 'pie',
-        data: {
-            labels: statusEstoqueLabels,
-            datasets: [{
-                label: 'Nº de Itens',
-                data: statusEstoqueData,
-                backgroundColor: [
-                    'rgba(40, 167, 69, 0.7)',
-                    'rgba(255, 193, 7, 0.7)',
-                    'rgba(220, 53, 69, 0.7)'
-                ],
-                hoverOffset: 4
-            }]
-        }
+        initCharts();
+        window.addEventListener('themeChanged', updateChartTheme);
     });
 </script>
 {% endblock %}

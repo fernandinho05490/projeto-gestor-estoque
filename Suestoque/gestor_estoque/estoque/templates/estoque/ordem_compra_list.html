@@ -1,0 +1,67 @@
+{% extends 'estoque/base.html' %}
+
+{% block title %}Ordens de Compra{% endblock %}
+
+{% block content %}
+<!-- CABEÇALHO DA PÁGINA -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">Ordens de Compra</h1>
+        <p class="text-secondary">Visualize e gerencie todos os seus pedidos a fornecedores.</p>
+    </div>
+    <a href="{% url 'compras' %}" class="btn btn-primary shadow-sm">
+        <i class="bi bi-plus-circle-fill"></i> Criar Novo Pedido
+    </a>
+</div>
+
+<!-- LISTA DE ORDENS DE COMPRA -->
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Pedido #</th>
+                    <th scope="col">Fornecedor</th>
+                    <th scope="col">Data de Criação</th>
+                    <th scope="col" class="text-center">Status</th>
+                    <th scope="col" class="text-end">Custo Total</th>
+                    <th scope="col" class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ordem in ordens %}
+                <tr>
+                    <td class="fw-bold">#{{ ordem.id }}</td>
+                    <td>{{ ordem.fornecedor.nome }}</td>
+                    <td>{{ ordem.data_criacao|date:"d/m/Y" }}</td>
+                    <td class="text-center">
+                        {% if ordem.status == 'PENDENTE' %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis">{{ ordem.get_status_display }}</span>
+                        {% elif ordem.status == 'ENVIADA' %}
+                            <span class="badge bg-info-subtle text-info-emphasis">{{ ordem.get_status_display }}</span>
+                        {% elif ordem.status == 'RECEBIDA' %}
+                            <span class="badge bg-success-subtle text-success-emphasis">{{ ordem.get_status_display }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ ordem.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">R$ {{ ordem.get_custo_total|floatformat:2 }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'ordem_compra_detail' ordem.id %}" class="btn btn-sm btn-outline-secondary">
+                            Ver Detalhes
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-5 text-secondary">
+                        <i class="bi bi-card-list fs-1"></i>
+                        <p class="mt-2 mb-0">Nenhuma ordem de compra encontrada.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

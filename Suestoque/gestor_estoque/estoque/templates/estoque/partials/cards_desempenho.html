@@ -1,0 +1,69 @@
+<!-- Card de Hoje -->
+<div class="col-md-4">
+    <a href="{% url 'relatorio_vendas' 'hoje' %}" class="card-link">
+        <div class="card h-100 shadow-sm card-clickable">
+            <div class="card-header text-center fw-bold">Hoje</div>
+            <div class="card-body text-center">
+                <h3 class="card-title display-6 fw-bold">{{ metricas_hoje.quantidade }}</h3>
+                <p class="card-text text-secondary mb-2">Unidades Vendidas</p>
+                <hr>
+                <div class="d-flex justify-content-around">
+                    <div>
+                        <small class="text-secondary d-block">Faturamento</small>
+                        <h5 class="text-success mb-0">R$ {{ metricas_hoje.faturamento|floatformat:2 }}</h5>
+                    </div>
+                    <div>
+                        <small class="text-secondary d-block">Lucro</small>
+                        <h5 class="text-info mb-0">R$ {{ metricas_hoje.lucro|floatformat:2 }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </a>
+</div>
+<!-- Card da Semana -->
+<div class="col-md-4">
+    <a href="{% url 'relatorio_vendas' 'semana' %}" class="card-link">
+        <div class="card h-100 shadow-sm card-clickable">
+            <div class="card-header text-center fw-bold">Nesta Semana</div>
+            <div class="card-body text-center">
+                <h3 class="card-title display-6 fw-bold">{{ metricas_semana.quantidade }}</h3>
+                <p class="card-text text-secondary mb-2">Unidades Vendidas</p>
+                <hr>
+                <div class="d-flex justify-content-around">
+                    <div>
+                        <small class="text-secondary d-block">Faturamento</small>
+                        <h5 class="text-success mb-0">R$ {{ metricas_semana.faturamento|floatformat:2 }}</h5>
+                    </div>
+                    <div>
+                        <small class="text-secondary d-block">Lucro</small>
+                        <h5 class="text-info mb-0">R$ {{ metricas_semana.lucro|floatformat:2 }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </a>
+</div>
+<!-- Card do Mês -->
+<div class="col-md-4">
+    <a href="{% url 'relatorio_vendas' 'mes' %}" class="card-link">
+        <div class="card h-100 shadow-sm card-clickable">
+            <div class="card-header text-center fw-bold">Neste Mês</div>
+            <div class="card-body text-center">
+                <h3 class="card-title display-6 fw-bold">{{ metricas_mes.quantidade }}</h3>
+                <p class="card-text text-secondary mb-2">Unidades Vendidas</p>
+                <hr>
+                <div class="d-flex justify-content-around">
+                    <div>
+                        <small class="text-secondary d-block">Faturamento</small>
+                        <h5 class="text-success mb-0">R$ {{ metricas_mes.faturamento|floatformat:2 }}</h5>
+                    </div>
+                    <div>
+                        <small class="text-secondary d-block">Lucro</small>
+                        <h5 class="text-info mb-0">R$ {{ metricas_mes.lucro|floatformat:2 }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </a>
+</div>

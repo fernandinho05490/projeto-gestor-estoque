@@ -1,11 +1,11 @@
-# estoque/forms.py 
-
 from django import forms
-from .models import Produto, MovimentacaoEstoque
+from .models import Variacao
 
 class MovimentacaoForm(forms.Form):
-    produto = forms.ModelChoiceField(
-        queryset=Produto.objects.all().order_by('nome'),
+    # O CAMPO AGORA É UMA ESCOLHA DE VARIAÇÃO
+    variacao = forms.ModelChoiceField(
+        queryset=Variacao.objects.all().select_related('produto').order_by('produto__nome'),
+        label="Produto (Variação)",
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     quantidade = forms.IntegerField(
