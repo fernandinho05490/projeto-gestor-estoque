@@ -1,6 +1,6 @@
 from django.db import models
-from django.db.models import Sum, F, Value, CharField
-from django.db.models.functions import Concat
+from django.db.models import Sum, F
+from django.utils import timezone
 
 # --- Modelos de Atributos (sem alterações) ---
 class Atributo(models.Model):
@@ -13,11 +13,20 @@ class ValorAtributo(models.Model):
     class Meta: unique_together = ('atributo', 'valor')
     def __str__(self): return f"{self.atributo.nome}: {self.valor}"
 
-# --- Modelos Principais (sem alterações) ---
+# --- Modelos Principais (com uma pequena alteração) ---
 class Fornecedor(models.Model):
     nome = models.CharField(max_length=200)
     telefone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
+    
+    # --- INÍCIO DA ALTERAÇÃO ---
+    # Adicionamos o campo para o tempo de entrega
+    tempo_entrega_dias = models.PositiveIntegerField(
+        default=7, 
+        help_text="Tempo médio de entrega do fornecedor em dias. Essencial para o cálculo de reposição."
+    )
+    # --- FIM DA ALTERAÇÃO ---
+
     def __str__(self): return self.nome
 
 class Categoria(models.Model):
@@ -40,7 +49,7 @@ class Variacao(models.Model):
     preco_de_custo = models.DecimalField(max_digits=10, decimal_places=2)
     preco_de_venda = models.DecimalField(max_digits=10, decimal_places=2)
     quantidade_em_estoque = models.PositiveIntegerField(default=0, editable=False)
-    estoque_minimo = models.PositiveIntegerField(default=0)
+    estoque_minimo = models.PositiveIntegerField(default=0, help_text="Estoque de segurança.")
     estoque_ideal = models.PositiveIntegerField(default=1)
 
     def __str__(self):
@@ -62,12 +71,12 @@ class MovimentacaoEstoque(models.Model):
     variacao = models.ForeignKey(Variacao, on_delete=models.CASCADE, related_name='movimentacoes')
     quantidade = models.IntegerField()
     tipo = models.CharField(max_length=10, choices=TIPO_MOVIMENTACAO)
-    data = models.DateTimeField(auto_now_add=True)
+    data = models.DateTimeField(default=timezone.now)
     descricao = models.CharField(max_length=255, blank=True)
     def __str__(self): return f"{self.variacao} - {self.tipo}: {self.quantidade}"
 
 
-# --- INÍCIO: NOVOS MODELOS PARA GESTÃO DE COMPRAS ---
+# --- Modelos de Gestão de Compras (sem alterações) ---
 class OrdemDeCompra(models.Model):
     STATUS_CHOICES = (
         ('PENDENTE', 'Pendente'),

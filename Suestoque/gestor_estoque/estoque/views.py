@@ -2,17 +2,20 @@ import json
 from datetime import datetime, timedelta
 from urllib.parse import quote
 from collections import defaultdict
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import LoginView
 from django.db.models import F, Q, Sum
 from django.db.models.functions import ExtractHour, ExtractWeek, ExtractWeekDay
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.db import transaction
 from weasyprint import HTML
 
 from .forms import MovimentacaoForm
@@ -377,23 +380,50 @@ def search_view(request):
 @login_required
 @permission_required('estoque.add_ordemdecompra', raise_exception=True)
 def compras_view(request):
-    # 1. Primeiro, pegamos os IDs de todas as variações que já estão
-    #    em uma ordem de compra com status 'PENDENTE' ou 'ENVIADA'.
+    # Período de análise para a média de vendas (últimos 30 dias)
+    periodo_analise = timezone.now() - timedelta(days=30)
+
+    # 1. Exclui variações que já estão em pedidos abertos
     variacoes_em_pedidos_abertos = ItemOrdemDeCompra.objects.filter(
         ordem_de_compra__status__in=['PENDENTE', 'ENVIADA']
     ).values_list('variacao_id', flat=True)
 
-    # 2. Agora, a consulta principal busca por variações que precisam de reposição,
-    #    MAS EXCLUI aquelas que já encontramos no passo anterior.
-    variacoes_para_repor = Variacao.objects.filter(
-        quantidade_em_estoque__lt=F('estoque_minimo')
-    ).exclude(
+    # 2. Pega todas as variações candidatas
+    variacoes_candidatas = Variacao.objects.exclude(
         id__in=variacoes_em_pedidos_abertos
-    ).select_related('produto__fornecedor').order_by('produto__fornecedor', 'produto__nome')
+    ).select_related('produto__fornecedor')
 
-    # O resto da view continua igual
-    for variacao in variacoes_para_repor:
-        variacao.quantidade_a_comprar = variacao.estoque_ideal - variacao.quantidade_em_estoque
+    # 3. Calcula a média de vendas para cada variação
+    vendas_no_periodo = MovimentacaoEstoque.objects.filter(
+        tipo='SAIDA',
+        data__gte=periodo_analise
+    ).values('variacao_id').annotate(total_vendido=Sum('quantidade'))
+    
+    media_vendas_diaria = {
+        item['variacao_id']: Decimal(item['total_vendido']) / Decimal(30)
+        for item in vendas_no_periodo
+    }
+
+    # 4. Filtra a lista final com base na lógica preditiva
+    variacoes_para_repor = []
+    for variacao in variacoes_candidatas:
+        # Pega a média de vendas (ou zero se nunca vendeu)
+        venda_media = media_vendas_diaria.get(variacao.id, Decimal(0))
+        
+        # Pega o tempo de entrega (com um padrão seguro de 7 dias)
+        tempo_entrega = variacao.produto.fornecedor.tempo_entrega_dias if variacao.produto.fornecedor else 7
+
+        # Calcula o Ponto de Pedido
+        demanda_no_prazo = venda_media * tempo_entrega
+        ponto_de_pedido = demanda_no_prazo + variacao.estoque_minimo
+
+        # Adiciona à lista se o estoque atual atingiu o ponto de pedido
+        if variacao.quantidade_em_estoque <= ponto_de_pedido:
+            variacao.media_vendas_diaria = round(venda_media, 2)
+            variacao.dias_de_estoque_restante = int(variacao.quantidade_em_estoque / venda_media) if venda_media > 0 else float('inf')
+            variacao.ponto_de_pedido = int(ponto_de_pedido)
+            variacao.quantidade_a_comprar = variacao.estoque_ideal - variacao.quantidade_em_estoque
+            variacoes_para_repor.append(variacao)
 
     context = {
         'variacoes_para_repor': variacoes_para_repor,
@@ -411,34 +441,55 @@ def gerar_ordem_de_compra(request):
             messages.error(request, "Nenhum item foi selecionado para gerar a ordem de compra.")
             return redirect('compras')
 
-        variacoes_por_fornecedor = defaultdict(list)
-        variacoes_selecionadas = Variacao.objects.filter(id__in=variacao_ids).select_related('produto__fornecedor')
+        # Agrupa os itens a serem comprados por fornecedor
+        itens_por_fornecedor = defaultdict(list)
         
-        for variacao in variacoes_selecionadas:
-            if variacao.produto.fornecedor:
-                variacoes_por_fornecedor[variacao.produto.fornecedor].append(variacao)
-            else:
-                pass
+        for variacao_id in variacao_ids:
+            try:
+                variacao = Variacao.objects.select_related('produto__fornecedor').get(id=variacao_id)
+                # Pega a quantidade personalizada do input correspondente
+                quantidade_str = request.POST.get(f'quantidade_{variacao_id}')
+                
+                # Ignora o item se a quantidade for inválida ou zero
+                if not quantidade_str or int(quantidade_str) <= 0:
+                    continue
+                
+                quantidade = int(quantidade_str)
+
+                # Adiciona o item e a quantidade desejada à lista do fornecedor
+                if variacao.produto.fornecedor:
+                    itens_por_fornecedor[variacao.produto.fornecedor].append({
+                        'variacao': variacao,
+                        'quantidade': quantidade
+                    })
+                # Itens sem fornecedor são ignorados
+            except (Variacao.DoesNotExist, ValueError):
+                # Ignora IDs inválidos ou quantidades que não são números
+                continue
         
+        if not itens_por_fornecedor:
+            messages.warning(request, "Nenhum item válido (com fornecedor e quantidade maior que 0) foi processado.")
+            return redirect('compras')
+
+        # Cria uma Ordem de Compra para cada fornecedor
         ordens_criadas = 0
-        for fornecedor, variacoes in variacoes_por_fornecedor.items():
+        for fornecedor, itens in itens_por_fornecedor.items():
             ordem = OrdemDeCompra.objects.create(fornecedor=fornecedor, status='PENDENTE')
             
-            for variacao in variacoes:
-                quantidade_sugerida = variacao.estoque_ideal - variacao.quantidade_em_estoque
+            for item_data in itens:
+                variacao = item_data['variacao']
+                quantidade = item_data['quantidade']
                 ItemOrdemDeCompra.objects.create(
                     ordem_de_compra=ordem,
                     variacao=variacao,
-                    quantidade=quantidade_sugerida,
+                    quantidade=quantidade,
                     custo_unitario=variacao.preco_de_custo
                 )
             ordens_criadas += 1
         
         if ordens_criadas > 0:
             messages.success(request, f"{ordens_criadas} ordem(ns) de compra gerada(s) com sucesso!")
-        else:
-            messages.warning(request, "Não foi possível gerar ordens de compra. Verifique se os produtos selecionados têm um fornecedor associado.")
-
+        
     return redirect('compras')
 
 
@@ -488,4 +539,75 @@ def ordem_compra_receber_view(request, pk):
             
     return redirect('ordem_compra_detail', pk=pk)
 
+
+# --- INÍCIO: NOVAS VIEWS PARA O PONTO DE VENDA (PDV) ---
+
+@login_required
+def pdv_view(request):
+    # Por enquanto, apenas renderiza a página.
+    context = {}
+    return render(request, 'estoque/pdv.html', context)
+
+@login_required
+def search_variacoes_pdv(request):
+    """
+    Esta view funciona como uma API que retorna variações de produtos em formato JSON
+    para a busca em tempo real do PDV.
+    """
+    query = request.GET.get('q', '')
+    if query:
+        # Busca por nome do produto, valor do atributo ou ID da variação (para códigos de barras)
+        results = Variacao.objects.filter(
+            Q(produto__nome__icontains=query) |
+            Q(valores_atributos__valor__icontains=query) |
+            Q(id__iexact=query)
+        ).distinct().select_related('produto')[:10] # Limita a 10 resultados
+
+        variacoes = []
+        for variacao in results:
+            variacoes.append({
+                'id': variacao.id,
+                'nome_completo': str(variacao),
+                'estoque': variacao.quantidade_em_estoque,
+                'preco_venda': variacao.preco_de_venda,
+            })
+        return JsonResponse(variacoes, safe=False)
+    
+    return JsonResponse([], safe=False)
+
+# --- INÍCIO: NOVA VIEW/API PARA FINALIZAR A VENDA ---
+@login_required
+@require_POST # Garante que esta view só aceite requisições POST
+@transaction.atomic # Garante que todas as baixas de estoque aconteçam, ou nenhuma
+def finalizar_venda_pdv(request):
+    try:
+        data = json.loads(request.body)
+        cart = data.get('cart')
+
+        if not cart:
+            return JsonResponse({'status': 'error', 'message': 'Carrinho vazio.'}, status=400)
+
+        # Validação de estoque antes de qualquer alteração no banco
+        for item_id, item_data in cart.items():
+            variacao = get_object_or_404(Variacao, id=item_id)
+            if item_data['quantity'] > variacao.quantidade_em_estoque:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': f"Estoque insuficiente para '{variacao}'. Disponível: {variacao.quantidade_em_estoque}"
+                }, status=400)
+
+        # Se todo o estoque for válido, cria as movimentações
+        for item_id, item_data in cart.items():
+            variacao = Variacao.objects.get(id=item_id)
+            MovimentacaoEstoque.objects.create(
+                variacao=variacao,
+                quantidade=item_data['quantity'],
+                tipo='SAIDA',
+                descricao=f"Venda PDV"
+            )
+        
+        return JsonResponse({'status': 'success', 'message': 'Venda finalizada com sucesso!'})
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 

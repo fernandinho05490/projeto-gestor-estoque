@@ -13,14 +13,15 @@ from .views import (
     ordem_compra_list_view,
     ordem_compra_detail_view,
     ordem_compra_receber_view,
+    pdv_view,
+    search_variacoes_pdv,
+    finalizar_venda_pdv # <-- Nova importação
 )
 
 urlpatterns = [
     # URLs do sistema
     path('', dashboard_estoque, name='dashboard_estoque'),
     path('search/', search_view, name='search_results'),
-    
-    # URL de Movimentação (A que estava causando o erro)
     path('movimentacao/registrar/', registrar_movimentacao, name='registrar_movimentacao'),
 
     # URLs de Compras
@@ -29,6 +30,11 @@ urlpatterns = [
     path('compras/ordens/', ordem_compra_list_view, name='ordem_compra_list'),
     path('compras/ordens/<int:pk>/', ordem_compra_detail_view, name='ordem_compra_detail'),
     path('compras/ordens/<int:pk>/receber/', ordem_compra_receber_view, name='ordem_compra_receber'),
+
+    # URLs do PDV
+    path('pdv/', pdv_view, name='pdv'),
+    path('pdv/search/', search_variacoes_pdv, name='pdv_search_variacoes'),
+    path('pdv/finalizar/', finalizar_venda_pdv, name='pdv_finalizar_venda'), # <-- Nova rota da API
 
     # URLs de Relatórios
     path('relatorios/', relatorios_view, name='relatorios'),

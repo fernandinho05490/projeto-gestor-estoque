@@ -1,0 +1,291 @@
+{% extends 'estoque/base.html' %}
+{% load l10n %}
+
+{% block title %}Frente de Caixa (PDV){% endblock %}
+
+{% block content %}
+<!-- CABEÇALHO DA PÁGINA -->
+<div class="mb-4">
+    <h1 class="h2 mb-0">Frente de Caixa (PDV)</h1>
+    <p class="text-secondary">Inicie uma nova venda pesquisando por um produto.</p>
+</div>
+
+<!-- Alerta para mensagens de sucesso ou erro -->
+<div id="pdv-alert-placeholder"></div>
+
+<div class="row g-4">
+    <!-- COLUNA ESQUERDA: BUSCA E CARRINHO -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body position-relative">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="search-product" placeholder="Pesquisar por nome, cor, tamanho ou código..." autocomplete="off">
+                </div>
+                <div id="search-results-container" class="list-group position-absolute w-100 mt-1" style="z-index: 1050; max-height: 300px; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">
+                <i class="bi bi-cart3"></i> Itens da Venda
+            </div>
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Produto</th>
+                            <th scope="col" class="text-center" style="width: 150px;">Qtd.</th>
+                            <th scope="col" class="text-end">Subtotal</th>
+                            <th scope="col" class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-items">
+                        <tr id="empty-cart-row">
+                            <td colspan="4" class="text-center py-5 text-secondary">
+                                <i class="bi bi-cart-x fs-1"></i>
+                                <p class="mt-2 mb-0">O carrinho está vazio.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUNA DIREITA: RESUMO E FINALIZAÇÃO -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm sticky-top" style="top: 20px;">
+            <div class="card-body p-4">
+                <h3 class="h5 mb-3">Resumo da Venda</h3>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary">Subtotal</span>
+                    <span id="subtotal">R$ 0,00</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary">Descontos</span>
+                    <span id="descontos" class="text-danger">- R$ 0,00</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <span class="fw-bold fs-5">TOTAL</span>
+                    <span id="total" class="fw-bold fs-3 text-primary">R$ 0,00</span>
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success btn-lg" id="finalize-sale-btn" disabled>
+                        <i class="bi bi-check-circle-fill"></i> Finalizar Venda
+                    </button>
+                    <button class="btn btn-outline-danger" id="cancel-sale-btn">
+                        <i class="bi bi-x-circle"></i> Cancelar Venda
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('search-product');
+    const resultsContainer = document.getElementById('search-results-container');
+    const cartItemsContainer = document.getElementById('cart-items');
+    const emptyCartRow = document.getElementById('empty-cart-row');
+    const subtotalEl = document.getElementById('subtotal');
+    const totalEl = document.getElementById('total');
+    const finalizeSaleBtn = document.getElementById('finalize-sale-btn');
+    const cancelSaleBtn = document.getElementById('cancel-sale-btn');
+    const alertPlaceholder = document.getElementById('pdv-alert-placeholder');
+
+    let cart = {};
+    let searchTimeout;
+
+    const formatCurrency = (value) => `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+    const showAlert = (message, type = 'success') => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                <div>${message}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        alertPlaceholder.innerHTML = ''; // Limpa alertas anteriores
+        alertPlaceholder.append(wrapper);
+    };
+
+    const updateCartSummary = () => {
+        const subtotal = Object.values(cart).reduce((sum, item) => sum + item.subtotal, 0);
+        subtotalEl.textContent = formatCurrency(subtotal);
+        totalEl.textContent = formatCurrency(subtotal);
+        finalizeSaleBtn.disabled = Object.keys(cart).length === 0;
+        emptyCartRow.style.display = Object.keys(cart).length === 0 ? 'table-row' : 'none';
+    };
+
+    const addToCart = (product) => {
+        const { id, name, price, stock } = product;
+        if (cart[id]) {
+            if (cart[id].quantity < stock) cart[id].quantity++;
+            else showAlert(`Estoque máximo para "${name}" atingido.`, 'warning');
+        } else {
+            if (stock > 0) cart[id] = { id, name, price, stock, quantity: 1 };
+            else { showAlert(`"${name}" está sem estoque.`, 'danger'); return; }
+        }
+        cart[id].subtotal = cart[id].quantity * cart[id].price;
+        renderCart();
+    };
+
+    const renderCart = () => {
+        cartItemsContainer.innerHTML = '';
+        if (Object.keys(cart).length === 0) {
+            cartItemsContainer.appendChild(emptyCartRow);
+        } else {
+            for (const productId in cart) {
+                const item = cart[productId];
+                const row = document.createElement('tr');
+                row.dataset.productId = item.id;
+                row.innerHTML = `
+                    <td>${item.name}</td>
+                    <td class="text-center">
+                        <div class="input-group input-group-sm">
+                            <button class="btn btn-outline-secondary btn-sm cart-qty-btn" data-action="decrease">-</button>
+                            <input type="number" class="form-control text-center cart-qty-input" value="${item.quantity}" min="1" max="${item.stock}">
+                            <button class="btn btn-outline-secondary btn-sm cart-qty-btn" data-action="increase">+</button>
+                        </div>
+                    </td>
+                    <td class="text-end fw-bold">${formatCurrency(item.subtotal)}</td>
+                    <td class="text-center">
+                        <button class="btn btn-outline-danger btn-sm remove-from-cart-btn"><i class="bi bi-trash"></i></button>
+                    </td>
+                `;
+                cartItemsContainer.appendChild(row);
+            }
+        }
+        updateCartSummary();
+    };
+
+    const fetchProducts = async (query) => {
+        if (query.length < 2) { resultsContainer.innerHTML = ''; return; }
+        try {
+            const response = await fetch(`{% url 'pdv_search_variacoes' %}?q=${query}`);
+            const data = await response.json();
+            renderResults(data);
+        } catch (error) { console.error('Erro ao buscar produtos:', error); }
+    };
+
+    const renderResults = (products) => {
+        if (products.length === 0) { resultsContainer.innerHTML = '<span class="list-group-item text-secondary">Nenhuma variação encontrada.</span>'; return; }
+        resultsContainer.innerHTML = products.map(p => `
+            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center add-to-cart-btn" 
+               data-product-id="${p.id}" data-product-name="${p.nome_completo}" data-product-price="${p.preco_venda}" data-product-stock="${p.estoque}">
+                <div><strong>${p.nome_completo}</strong><small class="d-block text-secondary">Estoque: ${p.estoque} | R$ ${parseFloat(p.preco_venda).toFixed(2)}</small></div>
+                ${p.estoque > 0 ? '<i class="bi bi-plus-circle-fill text-primary fs-4"></i>' : '<span class="badge bg-danger">Sem Estoque</span>'}
+            </a>`).join('');
+    };
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => fetchProducts(searchInput.value), 300);
+    });
+
+    document.addEventListener('click', (e) => {
+        const addToCartBtn = e.target.closest('.add-to-cart-btn');
+        if (addToCartBtn) {
+            e.preventDefault();
+            const productData = { id: addToCartBtn.dataset.productId, name: addToCartBtn.dataset.productName, price: parseFloat(addToCartBtn.dataset.productPrice), stock: parseInt(addToCartBtn.dataset.productStock) };
+            addToCart(productData);
+            searchInput.value = '';
+            resultsContainer.innerHTML = '';
+            searchInput.focus();
+        }
+    });
+
+    cartItemsContainer.addEventListener('click', e => {
+        const removeBtn = e.target.closest('.remove-from-cart-btn');
+        if(removeBtn) {
+            const productId = removeBtn.closest('tr').dataset.productId;
+            delete cart[productId];
+            renderCart();
+        }
+
+        const qtyBtn = e.target.closest('.cart-qty-btn');
+        if(qtyBtn) {
+            const productId = qtyBtn.closest('tr').dataset.productId;
+            const action = qtyBtn.dataset.action;
+            if (action === 'increase' && cart[productId].quantity < cart[productId].stock) cart[productId].quantity++;
+            else if (action === 'decrease' && cart[productId].quantity > 1) cart[productId].quantity--;
+            cart[productId].subtotal = cart[productId].quantity * cart[productId].price;
+            renderCart();
+        }
+    });
+    
+    cartItemsContainer.addEventListener('change', e => {
+        if(e.target.classList.contains('cart-qty-input')) {
+            const productId = e.target.closest('tr').dataset.productId;
+            let newQty = parseInt(e.target.value);
+            if (isNaN(newQty) || newQty < 1) newQty = 1;
+            if (newQty > cart[productId].stock) newQty = cart[productId].stock;
+            cart[productId].quantity = newQty;
+            cart[productId].subtotal = cart[productId].quantity * cart[productId].price;
+            renderCart();
+        }
+    });
+
+    cancelSaleBtn.addEventListener('click', () => {
+        if (Object.keys(cart).length > 0 && confirm('Tem certeza que deseja cancelar esta venda e limpar o carrinho?')) {
+            cart = {};
+            renderCart();
+        }
+    });
+
+    finalizeSaleBtn.addEventListener('click', async () => {
+        if (Object.keys(cart).length === 0) return;
+
+        finalizeSaleBtn.disabled = true;
+        finalizeSaleBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Finalizando...';
+
+        const getCookie = (name) => {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        try {
+            const response = await fetch('{% url "pdv_finalizar_venda" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                body: JSON.stringify({ cart: cart })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                showAlert(result.message, 'success');
+                cart = {};
+                renderCart();
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Ocorreu um erro de comunicação com o servidor. Tente novamente.', 'danger');
+        } finally {
+            finalizeSaleBtn.disabled = false;
+            finalizeSaleBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Finalizar Venda';
+        }
+    });
+});
+</script>
+{% endblock %}
+

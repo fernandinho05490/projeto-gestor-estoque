@@ -58,13 +58,23 @@
                 <i class="bi bi-box-seam-fill"></i> Gestor de Estoque
             </a>
 
+            <!-- LINK PARA O PDV -->
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'pdv' %}active{% endif %}" href="{% url 'pdv' %}">
+                        <i class="bi bi-pc-display-horizontal"></i> Frente de Caixa
+                    </a>
+                </li>
+            </ul>
+
+            <!-- BARRA DE PESQUISA -->
             <div class="flex-grow-1 d-none d-lg-block">
-                <form class="mx-lg-4 search-form" action="{% url 'search_results' %}" method="get">
+                <form class="ms-lg-4 search-form" action="{% url 'search_results' %}" method="get">
                     <input class="form-control" type="search" name="q" placeholder="Pesquisar variações..." aria-label="Search" value="{{ request.GET.q }}">
                 </form>
             </div>
             
-            <div class="d-flex align-items: center ms-auto">
+            <div class="d-flex align-items-center ms-auto">
                 {% if user.is_authenticated %}
                     {% if perms.estoque.change_variacao %}
                     <div class="dropdown me-3">
@@ -80,7 +90,7 @@
                             <li class="px-3 pt-2 pb-1"><h6 class="dropdown-header px-0">Alertas de Estoque</h6></li>
                             {% for variacao in notificacoes_alerta %}
                                 <li>
-                                    <a class="dropdown-item" href="{% url 'admin:estoque_variacao_change' variacao.id %}" target="_blank">
+                                    <a class="dropdown-item" href="{% url 'compras' %}">
                                         <small>Repor: {{ variacao }}</small>
                                         <small class="d-block text-danger">Em estoque: {{ variacao.quantidade_em_estoque }}</small>
                                     </a>
@@ -98,12 +108,10 @@
                             <span class="d-none d-md-inline">{{ user.get_full_name|default:user.username }}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-                            <!-- INÍCIO DA ALTERAÇÃO FINAL -->
                             {% if perms.estoque.add_ordemdecompra %}
                             <li><a class="dropdown-item" href="{% url 'compras' %}"><i class="bi bi-plus-circle-fill me-2"></i>Criar Pedido</a></li>
                             <li><a class="dropdown-item" href="{% url 'ordem_compra_list' %}"><i class="bi bi-card-list me-2"></i>Ver Pedidos</a></li>
                             {% endif %}
-                            <!-- FIM DA ALTERAÇÃO FINAL -->
                             
                             {% if perms.estoque.change_variacao %}
                             <li><a class="dropdown-item" href="{% url 'relatorios' %}"><i class="bi bi-clipboard-data-fill me-2"></i>Relatórios</a></li>
@@ -144,6 +152,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // (Seu script de seletor de tema continua aqui, sem alterações)
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const htmlEl = document.documentElement;
         
@@ -161,3 +170,5 @@
     {% block scripts_extra %}{% endblock %}
 </body>
 </html>
+
+  
