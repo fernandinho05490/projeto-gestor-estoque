@@ -29,6 +29,7 @@ class VariacaoInline(admin.TabularInline):
     filter_horizontal = ('valores_atributos',)
     readonly_fields = ('quantidade_em_estoque',)
     autocomplete_fields = ('valores_atributos',)
+    fields = ('valores_atributos', 'codigo_barras', 'preco_de_custo', 'preco_de_venda', 'estoque_minimo', 'estoque_ideal', 'quantidade_em_estoque')
 
 @admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
@@ -39,7 +40,7 @@ class ProdutoAdmin(admin.ModelAdmin):
 
 @admin.register(Variacao)
 class VariacaoAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'produto', 'preco_de_venda', 'quantidade_em_estoque', 'status_do_estoque')
+    list_display = ('__str__', 'produto','codigo_barras', 'preco_de_venda', 'quantidade_em_estoque', 'status_do_estoque')
     list_filter = ('produto__categoria', 'valores_atributos')
     search_fields = ('produto__nome', 'valores_atributos__valor')
     autocomplete_fields = ('produto', 'valores_atributos')

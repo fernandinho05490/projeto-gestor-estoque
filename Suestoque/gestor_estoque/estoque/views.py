@@ -544,35 +544,25 @@ def ordem_compra_receber_view(request, pk):
 
 @login_required
 def pdv_view(request):
-    # Por enquanto, apenas renderiza a página.
     context = {}
     return render(request, 'estoque/pdv.html', context)
 
 @login_required
 def search_variacoes_pdv(request):
-    """
-    Esta view funciona como uma API que retorna variações de produtos em formato JSON
-    para a busca em tempo real do PDV.
-    """
+    """ API que retorna variações em formato JSON para a busca em tempo real. """
     query = request.GET.get('q', '')
     if query:
-        # Busca por nome do produto, valor do atributo ou ID da variação (para códigos de barras)
+        # --- INÍCIO DA ALTERAÇÃO ---
+        # A busca agora também procura pelo código de barras exato.
         results = Variacao.objects.filter(
             Q(produto__nome__icontains=query) |
             Q(valores_atributos__valor__icontains=query) |
-            Q(id__iexact=query)
-        ).distinct().select_related('produto')[:10] # Limita a 10 resultados
+            Q(codigo_barras__iexact=query) # <-- Adicionado
+        ).distinct().select_related('produto')[:10]
+        # --- FIM DA ALTERAÇÃO ---
 
-        variacoes = []
-        for variacao in results:
-            variacoes.append({
-                'id': variacao.id,
-                'nome_completo': str(variacao),
-                'estoque': variacao.quantidade_em_estoque,
-                'preco_venda': variacao.preco_de_venda,
-            })
+        variacoes = [{'id': v.id, 'nome_completo': str(v), 'estoque': v.quantidade_em_estoque, 'preco_venda': v.preco_de_venda} for v in results]
         return JsonResponse(variacoes, safe=False)
-    
     return JsonResponse([], safe=False)
 
 # --- INÍCIO: NOVA VIEW/API PARA FINALIZAR A VENDA ---

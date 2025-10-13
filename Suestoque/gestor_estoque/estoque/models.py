@@ -18,15 +18,10 @@ class Fornecedor(models.Model):
     nome = models.CharField(max_length=200)
     telefone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
-    
-    # --- INÍCIO DA ALTERAÇÃO ---
-    # Adicionamos o campo para o tempo de entrega
     tempo_entrega_dias = models.PositiveIntegerField(
         default=7, 
         help_text="Tempo médio de entrega do fornecedor em dias. Essencial para o cálculo de reposição."
     )
-    # --- FIM DA ALTERAÇÃO ---
-
     def __str__(self): return self.nome
 
 class Categoria(models.Model):
@@ -51,6 +46,16 @@ class Variacao(models.Model):
     quantidade_em_estoque = models.PositiveIntegerField(default=0, editable=False)
     estoque_minimo = models.PositiveIntegerField(default=0, help_text="Estoque de segurança.")
     estoque_ideal = models.PositiveIntegerField(default=1)
+    
+     # --- Código de barras ---
+    codigo_barras = models.CharField(
+        max_length=100, 
+        unique=True, 
+        null=True, 
+        blank=True, 
+        help_text="Código de barras (EAN-13, etc.) da variação."
+    )
+    # --- FIM ---
 
     def __str__(self):
         valores = " | ".join([str(valor.valor) for valor in self.valores_atributos.all().order_by('atributo__nome')])
