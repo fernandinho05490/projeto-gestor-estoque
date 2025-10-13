@@ -3,37 +3,44 @@
 
 {% block title %}Frente de Caixa (PDV){% endblock %}
 
+{% block head_extra %}
+<style>
+    /* Garante que a lista de resultados da busca não cubra o modal do scanner */
+    #search-results-container, #customer-search-results {
+        z-index: 1040; 
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- CABEÇALHO DA PÁGINA -->
 <div class="mb-4">
     <h1 class="h2 mb-0">Frente de Caixa (PDV)</h1>
-    <p class="text-secondary">Inicie uma nova venda pesquisando por um produto ou usando o leitor.</p>
+    <p class="text-secondary">Inicie uma nova venda, associe um cliente e adicione produtos.</p>
 </div>
 
-<!-- Alerta para mensagens de sucesso ou erro -->
+<!-- Placeholder para alertas de sucesso ou erro -->
 <div id="pdv-alert-placeholder"></div>
 
 <div class="row g-4">
-    <!-- COLUNA ESQUERDA: BUSCA E CARRINHO -->
+    <!-- COLUNA ESQUERDA: BUSCA DE PRODUTOS E CARRINHO -->
     <div class="col-lg-7">
         <div class="card shadow-sm mb-4">
             <div class="card-body position-relative">
+                <label class="form-label text-secondary">Pesquisar Produto</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input type="text" class="form-control" id="search-product" placeholder="Pesquisar por nome, cor, tamanho ou código..." autocomplete="off">
-                    <!-- BOTÃO DO SCANNER -->
                     <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#scannerModal" title="Ler Código de Barras">
                         <i class="bi bi-upc-scan"></i>
                     </button>
                 </div>
-                <div id="search-results-container" class="list-group position-absolute w-100 mt-1" style="z-index: 1050; max-height: 300px; overflow-y: auto;"></div>
+                <div id="search-results-container" class="list-group position-absolute w-100 mt-1" style="max-height: 300px; overflow-y: auto;"></div>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header fw-bold">
-                <i class="bi bi-cart3"></i> Itens da Venda
-            </div>
+            <div class="card-header fw-bold"><i class="bi bi-cart3"></i> Itens da Venda</div>
             <div class="table-responsive">
                 <table class="table mb-0 align-middle">
                     <thead class="table-light">
@@ -57,10 +64,35 @@
         </div>
     </div>
 
-    <!-- COLUNA DIREITA: RESUMO E FINALIZAÇÃO -->
+    <!-- COLUNA DIREITA: CLIENTE, RESUMO E FINALIZAÇÃO -->
     <div class="col-lg-5">
         <div class="card shadow-sm sticky-top" style="top: 20px;">
             <div class="card-body p-4">
+                <!-- SEÇÃO DE CLIENTE -->
+                <div class="mb-4">
+                    <h3 class="h5 mb-3">Cliente da Venda</h3>
+                    <div id="customer-info" class="d-none">
+                        <div class="alert alert-secondary d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-person-check-fill"></i>
+                                <strong id="customer-name"></strong>
+                            </div>
+                            <button class="btn-close" id="remove-customer-btn" title="Remover cliente"></button>
+                        </div>
+                    </div>
+                    <div id="customer-search-area" class="position-relative">
+                        <div class="input-group">
+                             <span class="input-group-text"><i class="bi bi-person-bounding-box"></i></span>
+                            <input type="text" id="customer-search" class="form-control" placeholder="Pesquisar cliente (opcional)..." autocomplete="off">
+                             <a href="{% url 'admin:estoque_cliente_add' %}" target="_blank" class="btn btn-outline-secondary" title="Cadastrar Novo Cliente">
+                                <i class="bi bi-person-plus-fill"></i>
+                            </a>
+                        </div>
+                        <div id="customer-search-results" class="list-group position-absolute w-100 mt-1"></div>
+                    </div>
+                </div>
+
+                <!-- SEÇÃO DE RESUMO DA VENDA -->
                 <h3 class="h5 mb-3">Resumo da Venda</h3>
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-secondary">Subtotal</span>
@@ -75,6 +107,7 @@
                     <span class="fw-bold fs-5">TOTAL</span>
                     <span id="total" class="fw-bold fs-3 text-primary">R$ 0,00</span>
                 </div>
+
                 <div class="d-grid gap-2">
                     <button class="btn btn-success btn-lg" id="finalize-sale-btn" disabled>
                         <i class="bi bi-check-circle-fill"></i> Finalizar Venda
@@ -88,7 +121,7 @@
     </div>
 </div>
 
-<!-- MODAL PARA O SCANNER DE CÓDIGO DE BARRAS (AGORA DENTRO DO BLOCK CONTENT) -->
+<!-- Modal do Scanner -->
 <div class="modal fade" id="scannerModal" tabindex="-1" aria-labelledby="scannerModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -112,8 +145,10 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // --- SELEÇÃO DE ELEMENTOS DO DOM ---
-    // Guardamos todos os elementos HTML que vamos manipular em variáveis para fácil acesso.
+    // =========================================================================
+    // 1. SELEÇÃO DE ELEMENTOS DO DOM
+    // Guardamos todos os elementos HTML que vamos manipular em variáveis.
+    // =========================================================================
     const searchInput = document.getElementById('search-product');
     const resultsContainer = document.getElementById('search-results-container');
     const cartItemsContainer = document.getElementById('cart-items');
@@ -124,47 +159,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelSaleBtn = document.getElementById('cancel-sale-btn');
     const alertPlaceholder = document.getElementById('pdv-alert-placeholder');
     const scannerModal = document.getElementById('scannerModal');
+    const customerSearchInput = document.getElementById('customer-search');
+    const customerSearchResults = document.getElementById('customer-search-results');
+    const customerInfoDiv = document.getElementById('customer-info');
+    const customerSearchArea = document.getElementById('customer-search-area');
+    const customerNameEl = document.getElementById('customer-name');
+    const removeCustomerBtn = document.getElementById('remove-customer-btn');
 
-    // --- ESTADO DA APLICAÇÃO ---
-    // 'cart' é um objeto que armazena todos os produtos da venda atual.
-    let cart = {};
-    // 'searchTimeout' é usado para otimizar a busca (debounce).
-    let searchTimeout;
-
-    // --- LÓGICA DO SCANNER ---
-    // Inicializa a biblioteca do leitor de código de barras.
+    // =========================================================================
+    // 2. ESTADO DA APLICAÇÃO
+    // Variáveis que guardam os dados da venda atual.
+    // =========================================================================
+    let cart = {}; // Objeto que armazena os produtos no carrinho.
+    let selectedCustomer = null; // Guarda o cliente selecionado para a venda.
+    let searchTimeout, customerSearchTimeout; // Para otimizar as buscas (debounce).
     const html5QrCode = new Html5Qrcode("reader");
 
-    // Função chamada quando um código de barras é lido com sucesso.
-    const onScanSuccess = (decodedText, decodedResult) => {
-        html5QrCode.stop().then(() => {
-            searchInput.value = decodedText;
-            fetchProducts(decodedText, true); // O 'true' indica para adicionar ao carrinho automaticamente.
-            bootstrap.Modal.getInstance(scannerModal).hide();
-        }).catch(err => console.error("Erro ao parar o scanner:", err));
-    };
-
-    // Função chamada quando a leitura falha (ignoramos para não poluir o console).
-    const onScanFailure = (error) => {};
-
-    // Inicia o scanner quando o modal é aberto.
-    scannerModal.addEventListener('shown.bs.modal', () => {
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, onScanSuccess, onScanFailure)
-            .catch(err => console.error(`Não foi possível iniciar o scanner: ${err}`));
-    });
-
-    // Para o scanner quando o modal é fechado para economizar bateria/recursos.
-    scannerModal.addEventListener('hidden.bs.modal', () => {
-        if (html5QrCode.isScanning) {
-            html5QrCode.stop().catch(err => {});
-        }
-    });
-
-    // --- FUNÇÕES DE UTILIDADE ---
-    // Formata um número para o padrão de moeda brasileiro (R$).
+    // =========================================================================
+    // 3. FUNÇÕES DE UTILIDADE
+    // Funções auxiliares usadas em várias partes do código.
+    // =========================================================================
     const formatCurrency = (value) => `R$ ${value.toFixed(2).replace('.', ',')}`;
 
-    // Cria e exibe um alerta dinâmico na tela.
     const showAlert = (message, type = 'success') => {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert"><div>${message}</div><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
@@ -172,8 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
         alertPlaceholder.append(wrapper);
     };
 
-    // --- LÓGICA DO CARRINHO ---
-    // Recalcula e atualiza os totais no resumo da venda.
+    // =========================================================================
+    // 4. LÓGICA DO CARRINHO
+    // Funções que gerem a adição, remoção e renderização dos itens na venda.
+    // =========================================================================
     const updateCartSummary = () => {
         const subtotal = Object.values(cart).reduce((sum, item) => sum + item.subtotal, 0);
         subtotalEl.textContent = formatCurrency(subtotal);
@@ -182,7 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyCartRow.style.display = Object.keys(cart).length === 0 ? 'table-row' : 'none';
     };
 
-    // Adiciona um produto ao carrinho ou incrementa sua quantidade.
     const addToCart = (product) => {
         const { id, name, price, stock } = product;
         if (cart[id]) {
@@ -196,7 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCart();
     };
 
-    // Desenha a tabela de itens do carrinho na tela.
     const renderCart = () => {
         cartItemsContainer.innerHTML = '';
         if (Object.keys(cart).length === 0) {
@@ -213,8 +229,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCartSummary();
     };
 
-    // --- LÓGICA DA BUSCA ---
-    // Conversa com a API do Django para buscar produtos.
+    // =========================================================================
+    // 5. LÓGICA DAS BUSCAS (PRODUTOS E CLIENTES)
+    // Funções que conversam com as APIs do Django.
+    // =========================================================================
     const fetchProducts = async (query, autoAddToCart = false) => {
         if (query.length < 2) { resultsContainer.innerHTML = ''; return; }
         try {
@@ -231,21 +249,72 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { console.error('Erro ao buscar produtos:', error); }
     };
 
-    // Desenha a lista de resultados da busca na tela.
     const renderResults = (products) => {
         if (products.length === 0) { resultsContainer.innerHTML = '<span class="list-group-item text-secondary">Nenhuma variação encontrada.</span>'; return; }
         resultsContainer.innerHTML = products.map(p => `<a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center add-to-cart-btn" data-product-id="${p.id}" data-product-name="${p.nome_completo}" data-product-price="${p.preco_venda}" data-product-stock="${p.estoque}"><div><strong>${p.nome_completo}</strong><small class="d-block text-secondary">Estoque: ${p.estoque} | R$ ${parseFloat(p.preco_venda).toFixed(2)}</small></div>${p.estoque > 0 ? '<i class="bi bi-plus-circle-fill text-primary fs-4"></i>' : '<span class="badge bg-danger">Sem Estoque</span>'}</a>`).join('');
     };
 
-    // --- EVENT LISTENERS (Onde a Mágica Acontece) ---
-    // Ouve a digitação na barra de busca.
+    const fetchCustomers = async (query) => {
+        if (query.length < 2) { customerSearchResults.innerHTML = ''; return; }
+        try {
+            const response = await fetch(`{% url 'pdv_search_clientes' %}?q=${query}`);
+            const data = await response.json();
+            renderCustomerResults(data);
+        } catch (error) { console.error('Erro ao buscar clientes:', error); }
+    };
+
+    const renderCustomerResults = (customers) => {
+        if (customers.length === 0) { customerSearchResults.innerHTML = '<span class="list-group-item text-secondary">Nenhum cliente encontrado.</span>'; return; }
+        customerSearchResults.innerHTML = customers.map(c => `<a href="#" class="list-group-item list-group-item-action select-customer-btn" data-customer-id="${c.id}" data-customer-name="${c.nome}"><strong>${c.nome}</strong><small class="d-block text-secondary">${c.telefone || ''}</small></a>`).join('');
+    };
+
+    // =========================================================================
+    // 6. LÓGICA DO SCANNER
+    // =========================================================================
+    const onScanSuccess = (decodedText, decodedResult) => {
+        html5QrCode.stop().then(() => {
+            searchInput.value = decodedText;
+            fetchProducts(decodedText, true);
+            bootstrap.Modal.getInstance(scannerModal).hide();
+        }).catch(err => console.error("Erro ao parar o scanner:", err));
+    };
+    const onScanFailure = (error) => {};
+
+    // =========================================================================
+    // 7. EVENT LISTENERS
+    // Onde a Mágica Acontece: Conecta as ações do usuário com as funções.
+    // =========================================================================
+    scannerModal.addEventListener('shown.bs.modal', () => html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, onScanSuccess, onScanFailure).catch(err => {}));
+    scannerModal.addEventListener('hidden.bs.modal', () => { if (html5QrCode.isScanning) { html5QrCode.stop().catch(err => {}); } });
+
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => fetchProducts(searchInput.value), 300);
     });
 
-    // Ouve cliques em qualquer parte da página para ações dinâmicas.
+    customerSearchInput.addEventListener('input', () => {
+        clearTimeout(customerSearchTimeout);
+        customerSearchTimeout = setTimeout(() => fetchCustomers(customerSearchInput.value), 300);
+    });
+
     document.addEventListener('click', (e) => {
+        const selectCustomerBtn = e.target.closest('.select-customer-btn');
+        if (selectCustomerBtn) {
+            e.preventDefault();
+            selectedCustomer = { id: selectCustomerBtn.dataset.customerId, name: selectCustomerBtn.dataset.customerName };
+            customerNameEl.textContent = selectedCustomer.name;
+            customerInfoDiv.classList.remove('d-none');
+            customerSearchArea.classList.add('d-none');
+            customerSearchResults.innerHTML = '';
+            customerSearchInput.value = '';
+        }
+
+        if (e.target.id === 'remove-customer-btn') {
+            selectedCustomer = null;
+            customerInfoDiv.classList.add('d-none');
+            customerSearchArea.classList.remove('d-none');
+        }
+        
         const addToCartBtn = e.target.closest('.add-to-cart-btn');
         if (addToCartBtn) {
             e.preventDefault();
@@ -255,9 +324,11 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.innerHTML = '';
             searchInput.focus();
         }
+
+        if (!resultsContainer.contains(e.target) && e.target !== searchInput) { resultsContainer.innerHTML = ''; }
+        if (!customerSearchResults.contains(e.target) && e.target !== customerSearchInput) { customerSearchResults.innerHTML = ''; }
     });
 
-    // Ouve cliques dentro da tabela do carrinho.
     cartItemsContainer.addEventListener('click', e => {
         const removeBtn = e.target.closest('.remove-from-cart-btn');
         if(removeBtn) {
@@ -265,7 +336,6 @@ document.addEventListener('DOMContentLoaded', () => {
             delete cart[productId];
             renderCart();
         }
-
         const qtyBtn = e.target.closest('.cart-qty-btn');
         if(qtyBtn) {
             const productId = qtyBtn.closest('tr').dataset.productId;
@@ -277,7 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Ouve mudanças manuais na quantidade.
     cartItemsContainer.addEventListener('change', e => {
         if(e.target.classList.contains('cart-qty-input')) {
             const productId = e.target.closest('tr').dataset.productId;
@@ -290,53 +359,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Ouve o clique para cancelar a venda.
     cancelSaleBtn.addEventListener('click', () => {
         if (Object.keys(cart).length > 0 && confirm('Tem certeza que deseja cancelar esta venda e limpar o carrinho?')) {
             cart = {};
+            selectedCustomer = null;
+            customerInfoDiv.classList.add('d-none');
+            customerSearchArea.classList.remove('d-none');
             renderCart();
         }
     });
 
-    // Ouve o clique para finalizar a venda.
     finalizeSaleBtn.addEventListener('click', async () => {
         if (Object.keys(cart).length === 0) return;
-
         finalizeSaleBtn.disabled = true;
-        finalizeSaleBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Finalizando...';
-
+        finalizeSaleBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Finalizando...';
         const getCookie = (name) => {
-            let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
+                for (const cookie of document.cookie.split(';')) {
+                    const [key, value] = cookie.trim().split('=');
+                    if (key === name) return decodeURIComponent(value);
                 }
             }
-            return cookieValue;
+            return null;
         }
-        const csrftoken = getCookie('csrftoken');
 
         try {
             const response = await fetch('{% url "pdv_finalizar_venda" %}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
-                body: JSON.stringify({ cart: cart })
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ cart: cart, clienteId: selectedCustomer ? selectedCustomer.id : null })
             });
             const result = await response.json();
             if (response.ok) {
                 showAlert(result.message, 'success');
                 cart = {};
+                selectedCustomer = null;
                 renderCart();
+                customerInfoDiv.classList.add('d-none');
+                customerSearchArea.classList.remove('d-none');
             } else {
                 showAlert(result.message, 'danger');
             }
         } catch (error) {
-            showAlert('Ocorreu um erro de comunicação com o servidor. Tente novamente.', 'danger');
+            showAlert('Erro de comunicação com o servidor.', 'danger');
         } finally {
             finalizeSaleBtn.disabled = false;
             finalizeSaleBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Finalizar Venda';

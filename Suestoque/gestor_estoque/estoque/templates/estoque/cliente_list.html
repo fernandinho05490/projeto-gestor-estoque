@@ -1,0 +1,55 @@
+{% extends 'estoque/base.html' %}
+
+{% block title %}Gestão de Clientes{% endblock %}
+
+{% block content %}
+<!-- CABEÇALHO DA PÁGINA -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">Gestão de Clientes</h1>
+        <p class="text-secondary">Visualize e analise o histórico de todos os seus clientes.</p>
+    </div>
+    <a href="{% url 'admin:estoque_cliente_add' %}" target="_blank" class="btn btn-primary shadow-sm">
+        <i class="bi bi-person-plus-fill"></i> Novo Cliente
+    </a>
+</div>
+
+<!-- TABELA DE CLIENTES -->
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Nome do Cliente</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Telefone</th>
+                    <th scope="col">Data de Cadastro</th>
+                    <th scope="col" class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td class="fw-bold">{{ cliente.nome }}</td>
+                    <td>{{ cliente.email|default:"-" }}</td>
+                    <td>{{ cliente.telefone|default:"-" }}</td>
+                    <td>{{ cliente.data_criacao|date:"d/m/Y" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'cliente_detail' cliente.id %}" class="btn btn-sm btn-outline-secondary">
+                            Ver Detalhes
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-secondary">
+                        <i class="bi bi-people-fill fs-1"></i>
+                        <p class="mt-2 mb-0">Nenhum cliente cadastrado ainda.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -15,7 +15,11 @@ from .views import (
     ordem_compra_receber_view,
     pdv_view,
     search_variacoes_pdv,
-    finalizar_venda_pdv # <-- Nova importação
+    finalizar_venda_pdv,
+    search_clientes_pdv,
+    # Nossas novas views de CRM
+    cliente_list_view,
+    cliente_detail_view,
 )
 
 urlpatterns = [
@@ -23,6 +27,10 @@ urlpatterns = [
     path('', dashboard_estoque, name='dashboard_estoque'),
     path('search/', search_view, name='search_results'),
     path('movimentacao/registrar/', registrar_movimentacao, name='registrar_movimentacao'),
+
+    # URLs de Clientes (CRM)
+    path('clientes/', cliente_list_view, name='cliente_list'),
+    path('clientes/<int:pk>/', cliente_detail_view, name='cliente_detail'),
 
     # URLs de Compras
     path('compras/', compras_view, name='compras'),
@@ -33,8 +41,9 @@ urlpatterns = [
 
     # URLs do PDV
     path('pdv/', pdv_view, name='pdv'),
-    path('pdv/search/', search_variacoes_pdv, name='pdv_search_variacoes'),
-    path('pdv/finalizar/', finalizar_venda_pdv, name='pdv_finalizar_venda'), # <-- Nova rota da API
+    path('pdv/search-variacoes/', search_variacoes_pdv, name='pdv_search_variacoes'),
+    path('pdv/search-clientes/', search_clientes_pdv, name='pdv_search_clientes'),
+    path('pdv/finalizar/', finalizar_venda_pdv, name='pdv_finalizar_venda'),
 
     # URLs de Relatórios
     path('relatorios/', relatorios_view, name='relatorios'),

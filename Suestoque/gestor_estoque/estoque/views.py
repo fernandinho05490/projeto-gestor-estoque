@@ -7,22 +7,28 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import LoginView
-from django.db.models import F, Q, Sum
+from django.db.models import F, Q, Sum, Count, Avg
 from django.db.models.functions import ExtractHour, ExtractWeek, ExtractWeekDay
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render, get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from weasyprint import HTML
+
+# A importação do WeasyPrint pode ser comentada se o GTK não estiver instalado
+try:
+    from weasyprint import HTML
+    WEASYPRINT_Disponivel = True
+except OSError:
+    WEASYPRINT_Disponivel = False
 
 from .forms import MovimentacaoForm
-from .models import MovimentacaoEstoque, OrdemDeCompra, ItemOrdemDeCompra, Variacao
+from .models import MovimentacaoEstoque, OrdemDeCompra, ItemOrdemDeCompra, Variacao, Cliente
 
 
-# --- Views de Autenticação (sem alterações) ---
+# --- Views de Autenticação ---
 class CustomLoginView(LoginView):
     template_name = 'estoque/login.html'
     redirect_authenticated_user = True
@@ -37,7 +43,7 @@ class CustomLoginView(LoginView):
             return reverse_lazy('dashboard_estoque')
 
 
-# --- Views Principais (Dashboard e Movimentação) ---
+# --- Views Principais ---
 @login_required
 def dashboard_estoque(request):
     filtro_status = request.GET.get('filtro', None)
@@ -80,7 +86,7 @@ def dashboard_estoque(request):
     ).order_by('-total_vendido')[:5]
     
     nomes_mais_vendidas = {item['variacao__id']: str(Variacao.objects.get(id=item['variacao__id'])) for item in mais_vendidas_qs}
-    chart_mais_vendidos_labels = [nomes_mais_vendidas[item['variacao__id']] for item in mais_vendidas_qs]
+    chart_mais_vendidos_labels = [nomes_mais_vendidas.get(item['variacao__id']) for item in mais_vendidas_qs]
     chart_mais_vendidos_data = [item['total_vendido'] for item in mais_vendidas_qs]
 
     valor_por_categoria_qs = Variacao.objects.values('produto__categoria__nome').annotate(
@@ -158,7 +164,7 @@ def registrar_movimentacao(request):
     return redirect('dashboard_estoque')
 
 
-# --- VIEWS DE RELATÓRIOS (RECONSTRUÍDAS) ---
+# --- VIEWS DE RELATÓRIOS ---
 @login_required
 @permission_required('estoque.change_variacao', raise_exception=True)
 def relatorios_view(request):
@@ -271,6 +277,9 @@ def relatorio_vendas_view(request, periodo):
 @login_required
 @permission_required('estoque.change_variacao', raise_exception=True)
 def exportar_relatorio_pdf(request):
+    if not WEASYPRINT_Disponivel:
+        return HttpResponse("A funcionalidade de exportação para PDF está desativada neste ambiente.", status=501)
+
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     incluir_graficos = request.GET.get('incluir_graficos') == 'on'
@@ -323,22 +332,11 @@ def exportar_relatorio_pdf(request):
             'type': 'horizontalBar',
             'data': {
                 'labels': [nomes_mais_vendidas.get(item['variacao__id']) for item in mais_vendidas_qs],
-                'datasets': [{
-                    'label': 'Unidades Vendidas',
-                    'data': [item['total_vendido'] for item in mais_vendidas_qs],
-                    'backgroundColor': 'rgba(0, 122, 255, 0.7)',
-                    'borderColor': 'rgba(0, 122, 255, 1)',
-                    'borderWidth': 1,
-                    'borderRadius': 5,
-                }]
+                'datasets': [{'label': 'Unidades Vendidas', 'data': [item['total_vendido'] for item in mais_vendidas_qs], 'backgroundColor': 'rgba(0, 122, 255, 0.7)', 'borderColor': 'rgba(0, 122, 255, 1)', 'borderWidth': 1, 'borderRadius': 5}]
             },
             'options': {
-                'responsive': True,
-                'legend': {'display': False},
-                'scales': {
-                    'xAxes': [{'ticks': {'beginAtZero': True, 'precision': 0, 'fontFamily': 'Inter', 'fontColor': '#666'}, 'gridLines': { 'drawBorder': False, 'color': 'rgba(0, 0, 0, 0.05)' }}],
-                    'yAxes': [{'ticks': {'fontFamily': 'Inter', 'fontColor': '#333', 'fontSize': 10}, 'gridLines': {'display': False}}]
-                },
+                'responsive': True, 'legend': {'display': False},
+                'scales': { 'xAxes': [{'ticks': {'beginAtZero': True, 'precision': 0, 'fontFamily': 'Inter', 'fontColor': '#666'}, 'gridLines': { 'drawBorder': False, 'color': 'rgba(0, 0, 0, 0.05)' }}], 'yAxes': [{'ticks': {'fontFamily': 'Inter', 'fontColor': '#333', 'fontSize': 10}, 'gridLines': {'display': False}}] },
                 'plugins': { 'datalabels': { 'anchor': 'end', 'align': 'right', 'offset': 8, 'color': '#1d1d1f', 'font': { 'family': 'Inter', 'weight': '600' } } },
                 'layout': { 'padding': {'left': 10, 'right': 30, 'top': 10, 'bottom': 10} }
             }
@@ -354,70 +352,22 @@ def exportar_relatorio_pdf(request):
     return response
 
 
-
-@login_required
-def search_view(request):
-    query = request.GET.get('q', '')
-    results = []
-
-    if query:
-        # A busca é feita em múltiplos campos para ser mais eficaz
-        results = Variacao.objects.filter(
-            Q(produto__nome__icontains=query) |
-            Q(produto__descricao__icontains=query) |
-            Q(valores_atributos__valor__icontains=query)
-        ).distinct().select_related('produto__categoria')
-
-    context = {
-        'query': query,
-        'results': results,
-    }
-    return render(request, 'estoque/search_results.html', context)
-
-
-# --- VIEWS DE COMPRAS ATUALIZADAS E CORRIGIDAS ---
-
+# --- VIEWS DE COMPRAS ---
 @login_required
 @permission_required('estoque.add_ordemdecompra', raise_exception=True)
 def compras_view(request):
-    # Período de análise para a média de vendas (últimos 30 dias)
     periodo_analise = timezone.now() - timedelta(days=30)
+    variacoes_em_pedidos_abertos = ItemOrdemDeCompra.objects.filter(ordem_de_compra__status__in=['PENDENTE', 'ENVIADA']).values_list('variacao_id', flat=True)
+    variacoes_candidatas = Variacao.objects.exclude(id__in=variacoes_em_pedidos_abertos).select_related('produto__fornecedor')
+    vendas_no_periodo = MovimentacaoEstoque.objects.filter(tipo='SAIDA', data__gte=periodo_analise).values('variacao_id').annotate(total_vendido=Sum('quantidade'))
+    media_vendas_diaria = {item['variacao_id']: Decimal(item['total_vendido']) / Decimal(30) for item in vendas_no_periodo}
 
-    # 1. Exclui variações que já estão em pedidos abertos
-    variacoes_em_pedidos_abertos = ItemOrdemDeCompra.objects.filter(
-        ordem_de_compra__status__in=['PENDENTE', 'ENVIADA']
-    ).values_list('variacao_id', flat=True)
-
-    # 2. Pega todas as variações candidatas
-    variacoes_candidatas = Variacao.objects.exclude(
-        id__in=variacoes_em_pedidos_abertos
-    ).select_related('produto__fornecedor')
-
-    # 3. Calcula a média de vendas para cada variação
-    vendas_no_periodo = MovimentacaoEstoque.objects.filter(
-        tipo='SAIDA',
-        data__gte=periodo_analise
-    ).values('variacao_id').annotate(total_vendido=Sum('quantidade'))
-    
-    media_vendas_diaria = {
-        item['variacao_id']: Decimal(item['total_vendido']) / Decimal(30)
-        for item in vendas_no_periodo
-    }
-
-    # 4. Filtra a lista final com base na lógica preditiva
     variacoes_para_repor = []
     for variacao in variacoes_candidatas:
-        # Pega a média de vendas (ou zero se nunca vendeu)
         venda_media = media_vendas_diaria.get(variacao.id, Decimal(0))
-        
-        # Pega o tempo de entrega (com um padrão seguro de 7 dias)
         tempo_entrega = variacao.produto.fornecedor.tempo_entrega_dias if variacao.produto.fornecedor else 7
-
-        # Calcula o Ponto de Pedido
         demanda_no_prazo = venda_media * tempo_entrega
         ponto_de_pedido = demanda_no_prazo + variacao.estoque_minimo
-
-        # Adiciona à lista se o estoque atual atingiu o ponto de pedido
         if variacao.quantidade_em_estoque <= ponto_de_pedido:
             variacao.media_vendas_diaria = round(venda_media, 2)
             variacao.dias_de_estoque_restante = int(variacao.quantidade_em_estoque / venda_media) if venda_media > 0 else float('inf')
@@ -425,9 +375,7 @@ def compras_view(request):
             variacao.quantidade_a_comprar = variacao.estoque_ideal - variacao.quantidade_em_estoque
             variacoes_para_repor.append(variacao)
 
-    context = {
-        'variacoes_para_repor': variacoes_para_repor,
-    }
+    context = {'variacoes_para_repor': variacoes_para_repor}
     return render(request, 'estoque/compras.html', context)
 
 
@@ -436,55 +384,31 @@ def compras_view(request):
 def gerar_ordem_de_compra(request):
     if request.method == 'POST':
         variacao_ids = request.POST.getlist('variacao_id')
-        
         if not variacao_ids:
             messages.error(request, "Nenhum item foi selecionado para gerar a ordem de compra.")
             return redirect('compras')
-
-        # Agrupa os itens a serem comprados por fornecedor
-        itens_por_fornecedor = defaultdict(list)
         
+        itens_por_fornecedor = defaultdict(list)
         for variacao_id in variacao_ids:
             try:
                 variacao = Variacao.objects.select_related('produto__fornecedor').get(id=variacao_id)
-                # Pega a quantidade personalizada do input correspondente
                 quantidade_str = request.POST.get(f'quantidade_{variacao_id}')
-                
-                # Ignora o item se a quantidade for inválida ou zero
-                if not quantidade_str or int(quantidade_str) <= 0:
-                    continue
-                
+                if not quantidade_str or int(quantidade_str) <= 0: continue
                 quantidade = int(quantidade_str)
-
-                # Adiciona o item e a quantidade desejada à lista do fornecedor
                 if variacao.produto.fornecedor:
-                    itens_por_fornecedor[variacao.produto.fornecedor].append({
-                        'variacao': variacao,
-                        'quantidade': quantidade
-                    })
-                # Itens sem fornecedor são ignorados
+                    itens_por_fornecedor[variacao.produto.fornecedor].append({'variacao': variacao, 'quantidade': quantidade})
             except (Variacao.DoesNotExist, ValueError):
-                # Ignora IDs inválidos ou quantidades que não são números
                 continue
         
         if not itens_por_fornecedor:
-            messages.warning(request, "Nenhum item válido (com fornecedor e quantidade maior que 0) foi processado.")
+            messages.warning(request, "Nenhum item válido (com fornecedor e quantidade > 0) foi processado.")
             return redirect('compras')
 
-        # Cria uma Ordem de Compra para cada fornecedor
         ordens_criadas = 0
         for fornecedor, itens in itens_por_fornecedor.items():
             ordem = OrdemDeCompra.objects.create(fornecedor=fornecedor, status='PENDENTE')
-            
             for item_data in itens:
-                variacao = item_data['variacao']
-                quantidade = item_data['quantidade']
-                ItemOrdemDeCompra.objects.create(
-                    ordem_de_compra=ordem,
-                    variacao=variacao,
-                    quantidade=quantidade,
-                    custo_unitario=variacao.preco_de_custo
-                )
+                ItemOrdemDeCompra.objects.create(ordem_de_compra=ordem, variacao=item_data['variacao'], quantidade=item_data['quantidade'], custo_unitario=item_data['variacao'].preco_de_custo)
             ordens_criadas += 1
         
         if ordens_criadas > 0:
@@ -493,111 +417,197 @@ def gerar_ordem_de_compra(request):
     return redirect('compras')
 
 
-# --- VIEWS PARA VISUALIZAÇÃO DE ORDENS DE COMPRA ---
-
 @login_required
 @permission_required('estoque.view_ordemdecompra', raise_exception=True)
 def ordem_compra_list_view(request):
     ordens = OrdemDeCompra.objects.all().select_related('fornecedor').order_by('-data_criacao')
-    context = {
-        'ordens': ordens
-    }
+    context = {'ordens': ordens}
     return render(request, 'estoque/ordem_compra_list.html', context)
+
 
 @login_required
 @permission_required('estoque.view_ordemdecompra', raise_exception=True)
 def ordem_compra_detail_view(request, pk):
     ordem = get_object_or_404(OrdemDeCompra, pk=pk)
     itens = ordem.itens.all().select_related('variacao__produto')
-    context = {
-        'ordem': ordem,
-        'itens': itens
-    }
+    context = {'ordem': ordem, 'itens': itens}
     return render(request, 'estoque/ordem_compra_detail.html', context)
+
 
 @login_required
 @permission_required('estoque.change_ordemdecompra', raise_exception=True)
 def ordem_compra_receber_view(request, pk):
     if request.method == 'POST':
         ordem = get_object_or_404(OrdemDeCompra, pk=pk)
-        
         if ordem.status != 'RECEBIDA' and ordem.status != 'CANCELADA':
             for item in ordem.itens.all():
-                MovimentacaoEstoque.objects.create(
-                    variacao=item.variacao,
-                    quantidade=item.quantidade,
-                    tipo='ENTRADA',
-                    descricao=f"Entrada referente ao Pedido de Compra #{ordem.id}"
-                )
-            
+                MovimentacaoEstoque.objects.create(variacao=item.variacao, quantidade=item.quantidade, tipo='ENTRADA', descricao=f"Entrada referente ao Pedido de Compra #{ordem.id}")
             ordem.status = 'RECEBIDA'
             ordem.data_recebimento = timezone.now()
             ordem.save()
             messages.success(request, f"Pedido #{ordem.id} marcado como recebido e estoque atualizado com sucesso!")
         else:
-            messages.warning(request, f"Este pedido já foi processado ou cancelado.")
-            
+            messages.warning(request, "Este pedido já foi processado ou cancelado.")
     return redirect('ordem_compra_detail', pk=pk)
 
 
-# --- INÍCIO: NOVAS VIEWS PARA O PONTO DE VENDA (PDV) ---
-
+# --- VIEWS DO PONTO DE VENDA (PDV) ---
 @login_required
 def pdv_view(request):
     context = {}
     return render(request, 'estoque/pdv.html', context)
 
+
 @login_required
 def search_variacoes_pdv(request):
-    """ API que retorna variações em formato JSON para a busca em tempo real. """
     query = request.GET.get('q', '')
     if query:
-        # --- INÍCIO DA ALTERAÇÃO ---
-        # A busca agora também procura pelo código de barras exato.
         results = Variacao.objects.filter(
             Q(produto__nome__icontains=query) |
             Q(valores_atributos__valor__icontains=query) |
-            Q(codigo_barras__iexact=query) # <-- Adicionado
+            Q(codigo_barras__iexact=query)
         ).distinct().select_related('produto')[:10]
-        # --- FIM DA ALTERAÇÃO ---
 
         variacoes = [{'id': v.id, 'nome_completo': str(v), 'estoque': v.quantidade_em_estoque, 'preco_venda': v.preco_de_venda} for v in results]
         return JsonResponse(variacoes, safe=False)
     return JsonResponse([], safe=False)
 
-# --- INÍCIO: NOVA VIEW/API PARA FINALIZAR A VENDA ---
+# --- INÍCIO: NOVAS VIEWS DE CLIENTE PARA O PDV ---
+
 @login_required
-@require_POST # Garante que esta view só aceite requisições POST
-@transaction.atomic # Garante que todas as baixas de estoque aconteçam, ou nenhuma
+def search_clientes_pdv(request):
+    """
+    API que retorna clientes em formato JSON para a busca em tempo real no PDV.
+    """
+    query = request.GET.get('q', '')
+    if query:
+        results = Cliente.objects.filter(
+            Q(nome__icontains=query) |
+            Q(telefone__icontains=query) |
+            Q(email__icontains=query)
+        )[:10] # Limita a 10 resultados
+
+        clientes = [{'id': c.id, 'nome': c.nome, 'telefone': c.telefone} for c in results]
+        return JsonResponse(clientes, safe=False)
+    return JsonResponse([], safe=False)
+
+@login_required
+@require_POST
+@transaction.atomic
 def finalizar_venda_pdv(request):
     try:
         data = json.loads(request.body)
         cart = data.get('cart')
+        cliente_id = data.get('clienteId') # Recebe o ID do cliente
 
         if not cart:
             return JsonResponse({'status': 'error', 'message': 'Carrinho vazio.'}, status=400)
 
-        # Validação de estoque antes de qualquer alteração no banco
+        # Validação de estoque
         for item_id, item_data in cart.items():
             variacao = get_object_or_404(Variacao, id=item_id)
             if item_data['quantity'] > variacao.quantidade_em_estoque:
-                return JsonResponse({
-                    'status': 'error', 
-                    'message': f"Estoque insuficiente para '{variacao}'. Disponível: {variacao.quantidade_em_estoque}"
-                }, status=400)
+                return JsonResponse({'status': 'error', 'message': f"Estoque insuficiente para '{variacao}'. Disponível: {variacao.quantidade_em_estoque}"}, status=400)
 
-        # Se todo o estoque for válido, cria as movimentações
+        # Pega a instância do cliente, se um ID foi enviado
+        cliente_instancia = None
+        if cliente_id:
+            cliente_instancia = get_object_or_404(Cliente, id=cliente_id)
+
+        # Cria as movimentações, agora associando ao cliente
         for item_id, item_data in cart.items():
             variacao = Variacao.objects.get(id=item_id)
             MovimentacaoEstoque.objects.create(
                 variacao=variacao,
                 quantidade=item_data['quantity'],
                 tipo='SAIDA',
-                descricao=f"Venda PDV"
+                descricao=f"Venda PDV",
+                cliente=cliente_instancia # Associa a venda ao cliente
             )
         
         return JsonResponse({'status': 'success', 'message': 'Venda finalizada com sucesso!'})
 
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+
+# --- INÍCIO: NOVAS VIEWS PARA O MÓDULO DE CLIENTES (CRM) ---
+
+@login_required
+@permission_required('estoque.view_cliente') # Apenas quem pode ver clientes
+def cliente_list_view(request):
+    """
+    Exibe uma lista de todos os clientes cadastrados.
+    """
+    clientes = Cliente.objects.all().order_by('nome')
+    context = {
+        'clientes': clientes,
+    }
+    return render(request, 'estoque/cliente_list.html', context)
+
+
+@login_required
+@permission_required('estoque.view_cliente')
+def cliente_detail_view(request, pk):
+    """
+    Exibe um dashboard detalhado para um cliente específico.
+    """
+    cliente = get_object_or_404(Cliente, pk=pk)
+    
+    # Busca todas as compras (movimentações de saída) do cliente
+    compras = cliente.compras.all().order_by('-data') \
+        .select_related('variacao__produto')
+
+    # Calcula as métricas principais
+    metricas = compras.aggregate(
+        total_gasto=Sum(F('quantidade') * F('variacao__preco_de_venda'), default=Decimal('0')),
+        total_lucro=Sum(F('quantidade') * (F('variacao__preco_de_venda') - F('variacao__preco_de_custo')), default=Decimal('0')),
+        total_itens=Sum('quantidade', default=0),
+        num_compras=Count('id', distinct=True)
+    )
+
+    # Calcula a frequência de compra
+    frequencia_dias = None
+    if metricas['num_compras'] > 1:
+        datas_compras = sorted([c.data for c in compras])
+        intervalos = [(datas_compras[i] - datas_compras[i+1]).days for i in range(len(datas_compras) - 1)]
+        if intervalos:
+            frequencia_dias = abs(sum(intervalos) / len(intervalos))
+
+    # Calcula o ticket médio
+    ticket_medio = metricas['total_gasto'] / metricas['num_compras'] if metricas['num_compras'] > 0 else 0
+
+    # Encontra os produtos favoritos
+    produtos_favoritos = compras.values('variacao__id') \
+        .annotate(qtd_comprada=Sum('quantidade')) \
+        .order_by('-qtd_comprada')[:5]
+    
+    # Adiciona o nome completo da variação aos resultados
+    for item in produtos_favoritos:
+        item['nome_completo'] = str(Variacao.objects.get(id=item['variacao__id']))
+
+    context = {
+        'cliente': cliente,
+        'compras': compras,
+        'total_gasto': metricas['total_gasto'],
+        'total_lucro': metricas['total_lucro'],
+        'total_itens': metricas['total_itens'],
+        'num_compras': metricas['num_compras'],
+        'frequencia_dias': frequencia_dias,
+        'ticket_medio': ticket_medio,
+        'produtos_favoritos': produtos_favoritos,
+    }
+    return render(request, 'estoque/cliente_detail.html', context)
+
+# --- FIM: NOVAS VIEWS PARA O MÓDULO DE CLIENTES (CRM) ---
+
+# --- VIEW DE BUSCA GLOBAL ---
+@login_required
+def search_view(request):
+    query = request.GET.get('q', '')
+    results = []
+    if query:
+        results = Variacao.objects.filter(Q(produto__nome__icontains=query) | Q(produto__descricao__icontains=query) | Q(valores_atributos__valor__icontains=query)).distinct().select_related('produto__categoria')
+    context = {'query': query, 'results': results}
+    return render(request, 'estoque/search_results.html', context)
 

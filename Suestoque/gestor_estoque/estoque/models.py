@@ -13,7 +13,22 @@ class ValorAtributo(models.Model):
     class Meta: unique_together = ('atributo', 'valor')
     def __str__(self): return f"{self.atributo.nome}: {self.valor}"
 
-# --- Modelos Principais (com uma pequena alteração) ---
+# --- INÍCIO: NOVO MODELO DE CLIENTE ---
+class Cliente(models.Model):
+    nome = models.CharField(max_length=200)
+    telefone = models.CharField(max_length=20, blank=True, unique=True, null=True)
+    email = models.EmailField(blank=True, unique=True, null=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Cliente"
+        verbose_name_plural = "Clientes"
+
+    def __str__(self):
+        return self.nome
+# --- FIM: NOVO MODELO DE CLIENTE ---
+
+# --- Modelos Principais (sem alterações) ---
 class Fornecedor(models.Model):
     nome = models.CharField(max_length=200)
     telefone = models.CharField(max_length=20, blank=True)
@@ -46,8 +61,6 @@ class Variacao(models.Model):
     quantidade_em_estoque = models.PositiveIntegerField(default=0, editable=False)
     estoque_minimo = models.PositiveIntegerField(default=0, help_text="Estoque de segurança.")
     estoque_ideal = models.PositiveIntegerField(default=1)
-    
-     # --- Código de barras ---
     codigo_barras = models.CharField(
         max_length=100, 
         unique=True, 
@@ -55,7 +68,6 @@ class Variacao(models.Model):
         blank=True, 
         help_text="Código de barras (EAN-13, etc.) da variação."
     )
-    # --- FIM ---
 
     def __str__(self):
         valores = " | ".join([str(valor.valor) for valor in self.valores_atributos.all().order_by('atributo__nome')])
@@ -78,6 +90,12 @@ class MovimentacaoEstoque(models.Model):
     tipo = models.CharField(max_length=10, choices=TIPO_MOVIMENTACAO)
     data = models.DateTimeField(default=timezone.now)
     descricao = models.CharField(max_length=255, blank=True)
+    
+    # --- INÍCIO DA ALTERAÇÃO ---
+    # Adiciona a ligação opcional a um cliente (para vendas)
+    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='compras')
+    # --- FIM DA ALTERAÇÃO ---
+
     def __str__(self): return f"{self.variacao} - {self.tipo}: {self.quantidade}"
 
 

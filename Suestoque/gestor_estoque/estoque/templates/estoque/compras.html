@@ -8,7 +8,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="h2 mb-0">Gestão de Compras Preditiva</h1>
-        <p class="text-secondary">O sistema sugere itens para compra com base na média de vendas e tempo de entrega.</p>
+        <p class="text-secondary">Selecione os itens e ajuste as quantidades para gerar seus pedidos.</p>
     </div>
     <a href="{% url 'ordem_compra_list' %}" class="btn btn-dark">
         <i class="bi bi-card-list"></i> Ver Ordens de Compra
@@ -105,7 +105,7 @@
         const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
         const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 
-        // Lógica dos checkboxes e cálculo de totais (sem alterações)
+        // Lógica dos checkboxes e cálculo de totais
         const selectAllCheckbox = document.getElementById('selectAll');
         const itemCheckboxes = document.querySelectorAll('.item-checkbox');
         const quantidadeInputs = document.querySelectorAll('.item-quantidade');

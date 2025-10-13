@@ -2,10 +2,21 @@ from django.contrib import admin
 from .models import (
     Atributo, ValorAtributo, Fornecedor, Categoria, 
     Produto, Variacao, MovimentacaoEstoque,
-    OrdemDeCompra, ItemOrdemDeCompra
+    OrdemDeCompra, ItemOrdemDeCompra,
+    Cliente # <-- Nova importação
 )
 
-# --- Configurações para Atributos ---
+# --- INÍCIO: NOVA CONFIGURAÇÃO PARA CLIENTES ---
+@admin.register(Cliente)
+class ClienteAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'email', 'telefone', 'data_criacao')
+    search_fields = ('nome', 'email', 'telefone')
+    list_filter = ('data_criacao',)
+# --- FIM: NOVA CONFIGURAÇÃO ---
+
+
+# --- Configurações existentes (sem alterações) ---
+# ... (AtributoAdmin, ValorAtributoAdmin, etc. continuam aqui) ...
 class ValorAtributoInline(admin.TabularInline):
     model = ValorAtributo
     extra = 1
@@ -21,8 +32,6 @@ class ValorAtributoAdmin(admin.ModelAdmin):
     list_filter = ('atributo',)
     search_fields = ('valor', 'atributo__nome')
 
-
-# --- Configurações para Produtos e Variações ---
 class VariacaoInline(admin.TabularInline):
     model = Variacao
     extra = 1
@@ -40,9 +49,9 @@ class ProdutoAdmin(admin.ModelAdmin):
 
 @admin.register(Variacao)
 class VariacaoAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'produto','codigo_barras', 'preco_de_venda', 'quantidade_em_estoque', 'status_do_estoque')
+    list_display = ('__str__', 'produto', 'codigo_barras', 'preco_de_venda', 'quantidade_em_estoque', 'status_do_estoque')
     list_filter = ('produto__categoria', 'valores_atributos')
-    search_fields = ('produto__nome', 'valores_atributos__valor')
+    search_fields = ('produto__nome', 'valores_atributos__valor', 'codigo_barras')
     autocomplete_fields = ('produto', 'valores_atributos')
     readonly_fields = ('quantidade_em_estoque',)
 
@@ -56,23 +65,18 @@ class VariacaoAdmin(admin.ModelAdmin):
         else:
             return "✅ OK"
 
-# --- Configurações para Movimentação de Estoque ---
 @admin.register(MovimentacaoEstoque)
 class MovimentacaoEstoqueAdmin(admin.ModelAdmin):
-    list_display = ('variacao', 'tipo', 'quantidade', 'data')
+    list_display = ('variacao', 'tipo', 'quantidade', 'data', 'cliente') # Adicionado cliente
     list_filter = ('tipo', 'data', 'variacao__produto__categoria')
-    search_fields = ('variacao__produto__nome', 'variacao__valores_atributos__valor', 'descricao')
-    autocomplete_fields = ['variacao']
-
-
-# --- INÍCIO: NOVAS CONFIGURAÇÕES PARA GESTÃO DE COMPRAS ---
+    search_fields = ('variacao__produto__nome', 'descricao', 'cliente__nome') # Adicionado cliente
+    autocomplete_fields = ['variacao', 'cliente'] # Adicionado cliente
 
 class ItemOrdemDeCompraInline(admin.TabularInline):
     model = ItemOrdemDeCompra
     extra = 1
     autocomplete_fields = ('variacao',)
     
-    # Preenche o campo de custo automaticamente com o valor da variação
     def get_formset(self, request, obj=None, **kwargs):
         formset = super().get_formset(request, obj, **kwargs)
         formset.form.base_fields['custo_unitario'].widget.attrs['readonly'] = 'readonly'
@@ -87,10 +91,6 @@ class OrdemDeCompraAdmin(admin.ModelAdmin):
     inlines = [ItemOrdemDeCompraInline]
     readonly_fields = ('data_recebimento',)
 
-# --- FIM: NOVAS CONFIGURAÇÕES ---
-
-
-# --- Registros Simples ---
 @admin.register(Fornecedor)
 class FornecedorAdmin(admin.ModelAdmin):
     search_fields = ('nome',)
