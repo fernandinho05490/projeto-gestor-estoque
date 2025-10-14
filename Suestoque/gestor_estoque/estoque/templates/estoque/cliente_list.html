@@ -1,20 +1,99 @@
 {% extends 'estoque/base.html' %}
 
-{% block title %}Gestão de Clientes{% endblock %}
+{% block title %}Dashboard de Clientes{% endblock %}
+
+{% block head_extra %}
+<!-- CSS da biblioteca Flatpickr para o seletor de datas -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+{% endblock %}
 
 {% block content %}
 <!-- CABEÇALHO DA PÁGINA -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="h2 mb-0">Gestão de Clientes</h1>
-        <p class="text-secondary">Visualize e analise o histórico de todos os seus clientes.</p>
+        <h1 class="h2 mb-0">Dashboard de Clientes</h1>
+        <p class="text-secondary">Analise o desempenho dos seus clientes por período.</p>
     </div>
     <a href="{% url 'admin:estoque_cliente_add' %}" target="_blank" class="btn btn-primary shadow-sm">
         <i class="bi bi-person-plus-fill"></i> Novo Cliente
     </a>
 </div>
 
-<!-- TABELA DE CLIENTES -->
+<!-- NOVA SEÇÃO DE FILTROS -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" id="filter-form">
+            <div class="row g-3 align-items-end">
+                <!-- Filtros Rápidos -->
+                <div class="col-lg-auto">
+                    <label class="form-label text-secondary">Filtros Rápidos</label>
+                    <div class="btn-group" role="group">
+                        <a href="?periodo=hoje" class="btn btn-outline-secondary {% if periodo_selecionado == 'hoje' %}active{% endif %}">Hoje</a>
+                        <a href="?periodo=semana" class="btn btn-outline-secondary {% if periodo_selecionado == 'semana' %}active{% endif %}">Semana</a>
+                        <a href="?periodo=mes" class="btn btn-outline-secondary {% if periodo_selecionado == 'mes' %}active{% endif %}">Mês</a>
+                        <a href="{% url 'cliente_list' %}" class="btn btn-outline-secondary {% if periodo_selecionado == 'total' %}active{% endif %}">Total</a>
+                    </div>
+                </div>
+                <!-- Filtro de Data Personalizado -->
+                <div class="col-lg">
+                    <label class="form-label text-secondary">Período Personalizado</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="start_date" id="start_date" placeholder="Data de Início" value="{{ start_date_value }}">
+                        <input type="text" class="form-control" name="end_date" id="end_date" placeholder="Data de Fim" value="{{ end_date_value }}">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="bi bi-funnel-fill"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- SEÇÃO DE RANKINGS -->
+<div class="row g-4 mb-5">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold text-success">
+                <i class="bi bi-trophy-fill"></i> Top 10 Clientes por Valor Gasto ({{ periodo_titulo }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for cliente in top_gastadores %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{% url 'cliente_detail' cliente.cliente__id %}" class="text-decoration-none">{{ cliente.cliente__nome }}</a>
+                    <span class="badge bg-success-subtle text-success-emphasis rounded-pill">R$ {{ cliente.total_gasto|floatformat:2 }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-secondary text-center">Nenhum dado de gastos para este período.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold text-primary">
+                <i class="bi bi-arrow-repeat"></i> Top 10 Clientes por Frequência ({{ periodo_titulo }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for cliente in mais_frequentes %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{% url 'cliente_detail' cliente.cliente__id %}" class="text-decoration-none">{{ cliente.cliente__nome }}</a>
+                    <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ cliente.num_compras }} visita(s)</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-secondary text-center">Nenhum dado de frequência para este período.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA COM LISTA COMPLETA DE CLIENTES -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h5 section-title mb-0">Lista Completa de Clientes</h2>
+</div>
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle">
@@ -23,7 +102,6 @@
                     <th scope="col">Nome do Cliente</th>
                     <th scope="col">Email</th>
                     <th scope="col">Telefone</th>
-                    <th scope="col">Data de Cadastro</th>
                     <th scope="col" class="text-end">Ações</th>
                 </tr>
             </thead>
@@ -33,7 +111,6 @@
                     <td class="fw-bold">{{ cliente.nome }}</td>
                     <td>{{ cliente.email|default:"-" }}</td>
                     <td>{{ cliente.telefone|default:"-" }}</td>
-                    <td>{{ cliente.data_criacao|date:"d/m/Y" }}</td>
                     <td class="text-end">
                         <a href="{% url 'cliente_detail' cliente.id %}" class="btn btn-sm btn-outline-secondary">
                             Ver Detalhes
@@ -42,10 +119,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-5 text-secondary">
-                        <i class="bi bi-people-fill fs-1"></i>
-                        <p class="mt-2 mb-0">Nenhum cliente cadastrado ainda.</p>
-                    </td>
+                    <td colspan="4" class="text-center py-5 text-secondary">Nenhum cliente cadastrado ainda.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -53,3 +127,36 @@
     </div>
 </div>
 {% endblock %}
+
+
+{% block scripts_extra %}
+<!-- JS da biblioteca Flatpickr -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
+
+<script>
+    // Lógica para o seletor de datas (adaptativa ao tema)
+    const initFlatpickr = (theme) => {
+        const commonOptions = { dateFormat: "d/m/Y", locale: "pt" };
+        flatpickr("#start_date", commonOptions);
+        flatpickr("#end_date", commonOptions);
+        if (theme === 'dark') {
+            document.body.classList.add('flatpickr-dark');
+        } else {
+            document.body.classList.remove('flatpickr-dark');
+        }
+    };
+    const themeObserver = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {
+                initFlatpickr(mutation.target.getAttribute('data-bs-theme'));
+            }
+        }
+    });
+    themeObserver.observe(document.documentElement, { attributes: true });
+    document.addEventListener('DOMContentLoaded', () => {
+        initFlatpickr(document.documentElement.getAttribute('data-bs-theme') || 'dark');
+    });
+</script>
+{% endblock %}
+
