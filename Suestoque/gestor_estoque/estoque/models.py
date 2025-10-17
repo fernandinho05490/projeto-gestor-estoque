@@ -1,6 +1,8 @@
 from django.db import models
 from django.db.models import Sum, F
 from django.utils import timezone
+from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 # --- Modelos de Atributos (sem alterações) ---
 class Atributo(models.Model):
@@ -140,3 +142,31 @@ class ItemOrdemDeCompra(models.Model):
 
     def get_subtotal(self):
         return self.quantidade * self.custo_unitario
+
+class MetaVenda(models.Model):
+    # Idealmente, cada meta estaria ligada a um usuário ou à empresa, mas vamos simplificar por agora.
+    # Se quiser adicionar multi-usuário no futuro, basta adicionar:
+    # usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    valor_meta = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        help_text="O valor da meta de faturamento para o mês."
+    )
+    mes = models.PositiveIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="O mês da meta (1 para Janeiro, 12 para Dezembro)."
+    )
+    ano = models.PositiveIntegerField(
+        help_text="O ano da meta."
+    )
+
+    class Meta:
+        verbose_name = "Meta de Venda"
+        verbose_name_plural = "Metas de Vendas"
+        # Garante que só exista uma meta por mês/ano.
+        unique_together = ('mes', 'ano')
+
+    def __str__(self):
+        # Cria um nome legível, ex: "Meta para 10/2025"
+        return f"Meta para {self.mes}/{self.ano}"

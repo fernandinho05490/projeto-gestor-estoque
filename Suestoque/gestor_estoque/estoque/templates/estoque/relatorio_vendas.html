@@ -3,7 +3,6 @@
 {% block title %}Relatório de Vendas - {{ periodo_titulo }}{{ periodo_titulo_detalhe }}{% endblock %}
 
 {% block content %}
-<!-- CABEÇALHO DA PÁGINA -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">
         Relatório de Vendas: <span class="text-primary">{{ periodo_titulo }}</span>
@@ -21,12 +20,11 @@
     </div>
 </div>
 
-<!-- CARDS DE RESUMO DO PERÍODO -->
-<div class="row g-4 mb-5">
+<div class="row g-4 mb-4">
     <div class="col-md-4">
         <div class="card shadow-sm h-100">
             <div class="card-body text-center">
-                <h3 class="card-title display-6 fw-bold">{{ totais_periodo.quantidade }}</h3>
+                <h3 class="card-title display-6 fw-bold">{{ totais_periodo.quantidade|default:0 }}</h3>
                 <p class="card-text text-secondary">Total de Unidades Vendidas</p>
             </div>
         </div>
@@ -49,18 +47,70 @@
     </div>
 </div>
 
-<!-- SEÇÃO DE GRÁFICOS DINÂMICOS E DESTAQUES -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <i class="bi bi-star-fill text-warning me-2"></i>
+                <strong>Produto Mais Vendido do Período</strong>
+            </div>
+            <div class="card-body d-flex flex-column justify-content-center">
+                {% if produto_mais_vendido %}
+                    <h5 class="card-title mb-1">{{ produto_mais_vendido }}</h5>
+                    <p class="card-text text-success fw-bold display-6 mb-0">
+                        {{ produto_mais_vendido.total_vendido }}
+                        <span class="fs-6 text-secondary fw-normal">unidades</span>
+                    </p>
+                {% else %}
+                    <p class="text-secondary mb-0">Nenhuma venda registrada no período.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <i class="bi bi-gem text-primary me-2"></i>
+                <strong>Produto Mais Lucrativo do Período</strong>
+            </div>
+            <div class="card-body d-flex flex-column justify-content-center">
+                {% if produto_mais_lucrativo %}
+                     <h5 class="card-title mb-1">{{ produto_mais_lucrativo }}</h5>
+                     <p class="card-text text-primary fw-bold display-6 mb-0">
+                        R$ {{ produto_mais_lucrativo.lucro_gerado|floatformat:2 }}
+                        <span class="fs-6 text-secondary fw-normal">de lucro</span>
+                    </p>
+                {% else %}
+                    <p class="text-secondary mb-0">Nenhuma venda registrada no período.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4 mb-5">
-    <!-- VISÃO GERAL (SEMANA/MÊS) -->
-    {% if not is_daily_view and not filtro_ativo %}
+    {% if is_daily_view %}
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header fw-bold">
+                    <i class="bi bi-clock-history"></i> Vendas por Hora
+                </div>
+                <div class="card-body">
+                    <canvas id="graficoVendasPorHora"
+                            data-labels="{{ chart_hourly_labels }}"
+                            data-values="{{ chart_hourly_data }}"></canvas>
+                </div>
+            </div>
+        </div>
+    {% else %}
         <div class="col-lg-6">
             <div class="card shadow-sm h-100">
                 <div class="card-header fw-bold">
                     <i class="bi bi-bar-chart-line-fill"></i> {{ chart_titulo }}
                 </div>
                 <div class="card-body">
-                    <canvas id="graficoDesempenhoPeriodo" 
-                            data-labels="{{ chart_breakdown_labels }}" 
+                    <canvas id="graficoDesempenhoPeriodo"
+                            data-labels="{{ chart_breakdown_labels }}"
                             data-values="{{ chart_breakdown_data }}"
                             data-periodo="{{ periodo }}"></canvas>
                 </div>
@@ -78,58 +128,10 @@
                 </div>
             </div>
         </div>
-    
-    <!-- VISÃO DE UM ÚNICO DIA (HOJE OU DRILL-DOWN) -->
-    {% elif is_daily_view %}
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header fw-bold"><i class="bi bi-star-fill text-warning"></i> Produto Mais Vendido do Dia</div>
-                <div class="card-body text-center d-flex flex-column justify-content-center p-4">
-                    {% if produto_mais_vendido %}
-                        <h2 class="card-title h4">{{ produto_mais_vendido.nome_completo }}</h2>
-                        <p class="card-text text-secondary fs-4">
-                            <span class="fw-bold text-body">{{ produto_mais_vendido.total_vendido }}</span> unidades
-                        </p>
-                    {% else %}
-                        <p class="text-secondary">Nenhuma venda registrada.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header fw-bold"><i class="bi bi-gem text-info"></i> Produto Mais Lucrativo do Dia</div>
-                <div class="card-body text-center d-flex flex-column justify-content-center p-4">
-                    {% if produto_mais_lucrativo %}
-                        <h2 class="card-title h4">{{ produto_mais_lucrativo.nome_completo }}</h2>
-                        <p class="card-text text-info fs-4">
-                            <span class="fw-bold text-body">R$ {{ produto_mais_lucrativo.lucro|floatformat:2 }}</span> de lucro
-                        </p>
-                    {% else %}
-                        <p class="text-secondary">Nenhuma venda registrada.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
     {% endif %}
 </div>
 
-<!-- Gráfico de Vendas por Hora -->
-{% if is_daily_view %}
-<div class="card shadow-sm mb-4">
-    <div class="card-header fw-bold">
-        <i class="bi bi-clock-history"></i> {{ chart_hourly_title }}
-    </div>
-    <div class="card-body">
-        <canvas id="graficoVendasPorHora"
-                data-labels="{{ chart_hourly_labels }}"
-                data-values="{{ chart_hourly_data }}"></canvas>
-    </div>
-</div>
-{% endif %}
 
-
-<!-- TABELA DE VENDAS DETALHADAS -->
 <div class="card shadow-sm">
     <div class="card-header fw-bold">Vendas por Variação</div>
     <div class="table-responsive">
@@ -166,127 +168,87 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // Lógica para atualizar o tema dos gráficos
         const updateChartTheme = () => {
             const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
             const fontColor = isDarkMode ? '#adb5bd' : '#495057';
             const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-
             Chart.defaults.color = fontColor;
-            
-            // Atualiza cada gráfico existente
             Chart.instances.forEach(chart => {
                 if (chart.options.scales) {
-                    if (chart.options.scales.x) {
-                        chart.options.scales.x.ticks.color = fontColor;
-                        chart.options.scales.x.grid.color = gridColor;
-                    }
-                    if (chart.options.scales.y) {
-                        chart.options.scales.y.ticks.color = fontColor;
-                        chart.options.scales.y.grid.color = gridColor;
-                    }
+                    if (chart.options.scales.x) { chart.options.scales.x.ticks.color = fontColor; chart.options.scales.x.grid.color = gridColor; }
+                    if (chart.options.scales.y) { chart.options.scales.y.ticks.color = fontColor; chart.options.scales.y.grid.color = gridColor; }
                 }
-                if (chart.options.plugins && chart.options.plugins.legend) {
-                    chart.options.plugins.legend.labels.color = fontColor;
-                }
+                if (chart.options.plugins && chart.options.plugins.legend) { chart.options.plugins.legend.labels.color = fontColor; }
                 chart.update();
             });
         };
-
-        // Gráfico de desempenho (diário/semanal) clicável
         const ctxDesempenho = document.getElementById('graficoDesempenhoPeriodo');
         if (ctxDesempenho) {
             const breakdownLabels = JSON.parse(ctxDesempenho.dataset.labels);
             const breakdownData = JSON.parse(ctxDesempenho.dataset.values);
             const currentPeriodo = ctxDesempenho.dataset.periodo;
-            
             ctxDesempenho.style.cursor = 'pointer';
             new Chart(ctxDesempenho, {
                 type: 'bar',
-                data: {
-                    labels: breakdownLabels,
-                    datasets: [{
-                        label: 'Unidades Vendidas',
-                        data: breakdownData,
-                        backgroundColor: 'rgba(0, 122, 255, 0.7)',
-                        borderRadius: 4,
-                    }]
-                },
+                data: { labels: breakdownLabels, datasets: [{ label: 'Unidades Vendidas', data: breakdownData, backgroundColor: 'rgba(0, 122, 255, 0.7)', borderRadius: 4, }] },
                 options: {
                     scales: { y: { beginAtZero: true, grid: {} } },
                     plugins: { legend: { display: false } },
+                    // ==========================================================
+                    // INÍCIO DA LÓGICA DO CLIQUE CORRIGIDA
+                    // ==========================================================
                     onClick: (event, elements) => {
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const url = new URL(window.location.href);
-                            if (currentPeriodo === 'semana') {
-                                url.searchParams.set('dia', index + 1);
-                            } else if (currentPeriodo === 'mes') {
+                            const hasWeekFilter = url.searchParams.has('semana');
+
+                            if (currentPeriodo === 'mes' && !hasWeekFilter) {
+                                // Se estamos na visão de MÊS e NÃO há filtro de semana,
+                                // o clique é para FILTRAR UMA SEMANA.
                                 const semana = breakdownLabels[index].split(' ')[1];
                                 url.searchParams.set('semana', semana);
+                            } else {
+                                // Se estamos na visão de SEMANA (ou em uma semana já filtrada),
+                                // o clique é para FILTRAR UM DIA.
+                                url.searchParams.set('dia', index + 1);
                             }
                             window.location.href = url.toString();
                         }
                     }
+                    // ==========================================================
+                    // FIM DA LÓGICA DO CLIQUE CORRIGIDA
+                    // ==========================================================
                 }
             });
         }
-
-        // Gráfico de lucratividade
         const ctxLucro = document.getElementById('graficoLucratividade');
         if(ctxLucro) {
             const lucroLabels = JSON.parse(ctxLucro.dataset.labels);
             const lucroData = JSON.parse(ctxLucro.dataset.values);
-
             new Chart(ctxLucro, {
                 type: 'bar',
-                data: {
-                    labels: lucroLabels,
-                    datasets: [{
-                        label: 'Lucro (R$)',
-                        data: lucroData,
-                        backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                        borderRadius: 4,
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    scales: { x: { beginAtZero: true, grid: {} } },
-                    plugins: { legend: { display: false } }
-                }
+                data: { labels: lucroLabels, datasets: [{ label: 'Lucro (R$)', data: lucroData, backgroundColor: 'rgba(40, 167, 69, 0.7)', borderRadius: 4, }] },
+                options: { indexAxis: 'y', scales: { x: { beginAtZero: true, grid: {} } }, plugins: { legend: { display: false } } }
             });
         }
-
-        // Gráfico de vendas por hora
         const ctxHourly = document.getElementById('graficoVendasPorHora');
         if(ctxHourly) {
             const hourlyLabels = JSON.parse(ctxHourly.dataset.labels);
             const hourlyData = JSON.parse(ctxHourly.dataset.values);
-
             new Chart(ctxHourly, {
                 type: 'line',
-                data: {
-                    labels: hourlyLabels,
-                    datasets: [{
-                        label: 'Unidades Vendidas',
-                        data: hourlyData,
-                        borderColor: 'rgba(0, 122, 255, 1)',
-                        backgroundColor: 'rgba(0, 122, 255, 0.2)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    scales: { y: { beginAtZero: true, grid: {} } },
-                    plugins: { legend: { display: false } }
-                }
+                data: { labels: hourlyLabels, datasets: [{ label: 'Unidades Vendidas', data: hourlyData, borderColor: 'rgba(0, 122, 255, 1)', backgroundColor: 'rgba(0, 122, 255, 0.2)', fill: true, tension: 0.3 }] },
+                options: { scales: { y: { beginAtZero: true, grid: {} } }, plugins: { legend: { display: false } } }
             });
         }
-
-        // Define o tema inicial e ouve por mudanças
         updateChartTheme();
-        window.addEventListener('themeChanged', updateChartTheme);
+        const themeObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === "data-bs-theme") { updateChartTheme(); }
+            });
+        });
+        themeObserver.observe(document.documentElement, { attributes: true });
     });
 </script>
 {% endblock %}
-

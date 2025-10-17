@@ -1,0 +1,142 @@
+{% extends 'estoque/base.html' %}
+
+{% block title %}Análises Detalhadas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">Análises Detalhadas</h1>
+</div>
+
+{% if perms.estoque.change_variacao %}
+<h2 class="h5 section-title">Resumo Geral</h2>
+<div class="row g-4 mb-5">
+    <div class="col-lg-3 col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="card-title text-success">R$ {{ faturamento_total|floatformat:2 }}</h5>
+                    <p class="card-text mb-0 text-secondary">Faturamento Total</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="card-title text-info">R$ {{ lucro_total|floatformat:2 }}</h5>
+                    <p class="card-text mb-0 text-secondary">Lucro Total</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="card-title text-primary">R$ {{ total_inventory_value|floatformat:2 }}</h5>
+                    <p class="card-text mb-0 text-secondary">Valor do Inventário</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <a href="?filtro=perigo" class="card-link">
+            <div class="card h-100 card-clickable shadow-sm">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title text-danger">{{ produtos_perigo_count }} / {{ total_produtos }}</h5>
+                        <p class="card-text mb-0 text-secondary">Variações em Alerta</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<h2 class="h5 section-title">Análise Visual</h2>
+<div class="row g-4 mb-5">
+    <div class="col-lg-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header"><i class="bi bi-bar-chart-line-fill"></i> Top 5 Produtos Mais Vendidos</div>
+            <div class="card-body">
+                <canvas id="chartMaisVendidas" data-labels="{{ chart_mais_vendidos_labels }}" data-values="{{ chart_mais_vendidos_data }}"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header"><i class="bi bi-pie-chart-fill"></i> Valor por Categoria</div>
+            <div class="card-body">
+                <canvas id="chartValorCategoria" data-labels="{{ chart_valor_categoria_labels }}" data-values="{{ chart_valor_categoria_data }}"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header"><i class="bi bi-pie-chart-fill"></i> Status do Estoque</div>
+            <div class="card-body">
+                <canvas id="chartStatusEstoque" data-labels="{{ chart_status_labels }}" data-values="{{ chart_status_data }}"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if perms.estoque.change_variacao %}
+    {% include 'estoque/partials/rankings_lucratividade.html' %}
+{% endif %}
+
+{% endblock %}
+
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        let chartMaisVendidas, chartValorCategoria, chartStatusEstoque;
+        const updateChartTheme = () => {
+            const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            const fontColor = isDarkMode ? '#adb5bd' : '#495057';
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            Chart.defaults.color = fontColor;
+            if (chartMaisVendidas) { chartMaisVendidas.options.scales.x.ticks.color = fontColor; chartMaisVendidas.options.scales.y.ticks.color = fontColor; chartMaisVendidas.options.scales.x.grid.color = gridColor; chartMaisVendidas.update(); }
+            if (chartValorCategoria) { chartValorCategoria.options.plugins.legend.labels.color = fontColor; chartValorCategoria.update(); }
+            if (chartStatusEstoque) { chartStatusEstoque.options.plugins.legend.labels.color = fontColor; chartStatusEstoque.update(); }
+        };
+        const initCharts = () => {
+            const ctxMaisVendidas = document.getElementById('chartMaisVendidas');
+            if (ctxMaisVendidas) {
+                const labels = JSON.parse(ctxMaisVendidas.dataset.labels);
+                const values = JSON.parse(ctxMaisVendidas.dataset.values);
+                chartMaisVendidas = new Chart(ctxMaisVendidas, {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Unidades Vendidas', data: values, backgroundColor: 'rgba(0, 122, 255, 0.7)', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                });
+            }
+            const ctxValorCategoria = document.getElementById('chartValorCategoria');
+            if(ctxValorCategoria) {
+                const labels = JSON.parse(ctxValorCategoria.dataset.labels);
+                const values = JSON.parse(ctxValorCategoria.dataset.values);
+                chartValorCategoria = new Chart(ctxValorCategoria, {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ label: 'Valor em R$', data: values, backgroundColor: ['rgba(0, 122, 255, 0.7)', 'rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)'], hoverOffset: 4 }] }
+                });
+            }
+            const ctxStatusEstoque = document.getElementById('chartStatusEstoque');
+            if (ctxStatusEstoque) {
+                const labels = JSON.parse(ctxStatusEstoque.dataset.labels);
+                const values = JSON.parse(ctxStatusEstoque.dataset.values);
+                chartStatusEstoque = new Chart(ctxStatusEstoque, {
+                    type: 'pie',
+                    data: { labels, datasets: [{ label: 'Nº de Itens', data: values, backgroundColor: ['rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)', 'rgba(220, 53, 69, 0.7)'], hoverOffset: 4 }] }
+                });
+            }
+            updateChartTheme();
+        };
+        initCharts();
+        window.addEventListener('themeChanged', updateChartTheme);
+    });
+</script>
+{% endblock %}

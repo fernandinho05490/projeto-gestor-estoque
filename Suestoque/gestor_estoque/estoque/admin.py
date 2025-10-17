@@ -3,7 +3,7 @@ from .models import (
     Atributo, ValorAtributo, Fornecedor, Categoria, 
     Produto, Variacao, MovimentacaoEstoque,
     OrdemDeCompra, ItemOrdemDeCompra,
-    Cliente # <-- Nova importação
+    Cliente, MetaVenda, # <-- Nova importação
 )
 
 # --- INÍCIO: NOVA CONFIGURAÇÃO PARA CLIENTES ---
@@ -96,4 +96,10 @@ class FornecedorAdmin(admin.ModelAdmin):
     search_fields = ('nome',)
 
 admin.site.register(Categoria)
+
+@admin.register(MetaVenda)
+class MetaVendaAdmin(admin.ModelAdmin):
+    list_display = ('ano', 'mes', 'valor_meta')
+    list_filter = ('ano', 'mes')
+    ordering = ('-ano', '-mes')
 

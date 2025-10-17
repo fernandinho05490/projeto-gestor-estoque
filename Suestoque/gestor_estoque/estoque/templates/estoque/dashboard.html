@@ -3,7 +3,6 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<!-- ÁREA DE MENSAGENS -->
 {% if messages %}
     {% for message in messages %}
     <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
@@ -13,105 +12,52 @@
     {% endfor %}
 {% endif %}
 
-<!-- CABEÇALHO DA PÁGINA -->
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">Dashboard</h1>
+    <h1 class="h2 mb-0">Página Inicial</h1>
     <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#movimentacaoModal">
         <i class="bi bi-plus-circle-fill"></i> Registrar Movimentação
     </button>
 </div>
 
-<!-- SEÇÃO 1: RESUMO GERAL -->
-{% if perms.estoque.change_variacao %}
-<h2 class="h5 section-title">Resumo Geral</h2>
-<div class="row g-4 mb-5">
-    <!-- Cards de Faturamento, Lucro, Inventário, Reposição -->
-    <div class="col-lg-3 col-md-6">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="card-title text-success">R$ {{ faturamento_total|floatformat:2 }}</h5>
-                    <p class="card-text mb-0 text-secondary">Faturamento Total</p>
+<div class="card shadow-sm mb-5">
+    <div class="card-body">
+        {% if meta_venda %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title mb-0">Sua Meta de Faturamento para {{ meta_venda.mes }}/{{ meta_venda.ano }}</h5>
+                <a href="{% url 'admin:estoque_metavenda_change' meta_venda.id %}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-gear-fill"></i> Ajustar Meta
+                </a>
+            </div>
+            <p class="h3 fw-bold text-success mb-2">
+                R$ {{ faturamento_mes_atual|floatformat:2 }}
+                <span class="fs-5 text-secondary fw-normal"> de R$ {{ meta_venda.valor_meta|floatformat:2 }}</span>
+            </p>
+            <div class="progress" style="height: 20px;">
+                <div class="progress-bar bg-success" role="progressbar" style="width: {{ progresso_percentual }}%;" aria-valuenow="{{ progresso_percentual }}" aria-valuemin="0" aria-valuemax="100">
+                    {{ progresso_percentual }}%
                 </div>
             </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="card-title text-info">R$ {{ lucro_total|floatformat:2 }}</h5>
-                    <p class="card-text mb-0 text-secondary">Lucro Total</p>
-                </div>
+            {% if mensagem_motivacional %}
+            <div class="text-center text-secondary mt-2">
+                <em>{{ mensagem_motivacional }}</em>
             </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="card-title text-primary">R$ {{ total_inventory_value|floatformat:2 }}</h5>
-                    <p class="card-text mb-0 text-secondary">Valor do Inventário</p>
-                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-3">
+                <p class="lead">Você ainda não definiu uma meta de faturamento para este mês.</p>
+                <a href="{% url 'admin:estoque_metavenda_add' %}" target="_blank" class="btn btn-primary">
+                    <i class="bi bi-bullseye"></i> Criar sua Meta Agora
+                </a>
             </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <a href="?filtro=perigo" class="card-link">
-            <div class="card h-100 card-clickable shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title text-danger">{{ produtos_perigo_count }} / {{ total_produtos }}</h5>
-                        <p class="card-text mb-0 text-secondary">Variações em Alerta</p>
-                    </div>
-                </div>
-            </div>
-        </a>
+        {% endif %}
     </div>
 </div>
-{% endif %}
 
-<!-- SEÇÃO 2: DESEMPENHO POR PERÍODO -->
 <h2 class="h5 section-title">Desempenho por Período</h2>
 <div class="row g-4 mb-5">
     {% include 'estoque/partials/cards_desempenho.html' %}
 </div>
 
-<!-- SEÇÃO 3: ANÁLISE VISUAL -->
-<h2 class="h5 section-title">Análise Visual</h2>
-<div class="row g-4 mb-5">
-    <div class="col-lg-6">
-        <div class="card h-100 shadow-sm">
-            <div class="card-header"><i class="bi bi-bar-chart-line-fill"></i> Top 5 Produtos Mais Vendidos</div>
-            <div class="card-body">
-                <canvas id="chartMaisVendidas" data-labels="{{ chart_mais_vendidos_labels }}" data-values="{{ chart_mais_vendidos_data }}"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3">
-        <div class="card h-100 shadow-sm">
-            <div class="card-header"><i class="bi bi-pie-chart-fill"></i> Valor por Categoria</div>
-            <div class="card-body">
-                <canvas id="chartValorCategoria" data-labels="{{ chart_valor_categoria_labels }}" data-values="{{ chart_valor_categoria_data }}"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3">
-        <div class="card h-100 shadow-sm">
-            <div class="card-header"><i class="bi bi-pie-chart-fill"></i> Status do Estoque</div>
-            <div class="card-body">
-                <canvas id="chartStatusEstoque" data-labels="{{ chart_status_labels }}" data-values="{{ chart_status_data }}"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- SEÇÃO 4: ANÁLISE DE LUCRATIVIDADE -->
-{% if perms.estoque.change_variacao %}
-    {% include 'estoque/partials/rankings_lucratividade.html' %}
-{% endif %}
-
-<!-- SEÇÃO 5: ESTOQUE DETALHADO -->
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h2 class="h5 section-title mb-0">
         {% if filtro_status == 'perigo' %}
@@ -130,77 +76,9 @@
     </div>
 </div>
 
-<!-- Modal de Movimentação -->
 {% include 'estoque/partials/modal_movimentacao.html' %}
 {% endblock %}
 
 
 {% block scripts_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        let chartMaisVendidas, chartValorCategoria, chartStatusEstoque;
-
-        const updateChartTheme = () => {
-            const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-            const fontColor = isDarkMode ? '#adb5bd' : '#495057';
-            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-
-            Chart.defaults.color = fontColor;
-            
-            if (chartMaisVendidas) {
-                chartMaisVendidas.options.scales.x.ticks.color = fontColor;
-                chartMaisVendidas.options.scales.y.ticks.color = fontColor;
-                chartMaisVendidas.options.scales.x.grid.color = gridColor;
-                chartMaisVendidas.update();
-            }
-            if (chartValorCategoria) {
-                chartValorCategoria.options.plugins.legend.labels.color = fontColor;
-                chartValorCategoria.update();
-            }
-            if (chartStatusEstoque) {
-                chartStatusEstoque.options.plugins.legend.labels.color = fontColor;
-                chartStatusEstoque.update();
-            }
-        };
-
-        const initCharts = () => {
-            const ctxMaisVendidas = document.getElementById('chartMaisVendidas');
-            if (ctxMaisVendidas) {
-                const labels = JSON.parse(ctxMaisVendidas.dataset.labels);
-                const values = JSON.parse(ctxMaisVendidas.dataset.values);
-                chartMaisVendidas = new Chart(ctxMaisVendidas, {
-                    type: 'bar',
-                    data: { labels, datasets: [{ label: 'Unidades Vendidas', data: values, backgroundColor: 'rgba(0, 122, 255, 0.7)', borderRadius: 4 }] },
-                    options: { indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
-                });
-            }
-
-            const ctxValorCategoria = document.getElementById('chartValorCategoria');
-            if(ctxValorCategoria) {
-                const labels = JSON.parse(ctxValorCategoria.dataset.labels);
-                const values = JSON.parse(ctxValorCategoria.dataset.values);
-                chartValorCategoria = new Chart(ctxValorCategoria, {
-                    type: 'doughnut',
-                    data: { labels, datasets: [{ label: 'Valor em R$', data: values, backgroundColor: ['rgba(0, 122, 255, 0.7)', 'rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)'], hoverOffset: 4 }] }
-                });
-            }
-
-            const ctxStatusEstoque = document.getElementById('chartStatusEstoque');
-            if (ctxStatusEstoque) {
-                const labels = JSON.parse(ctxStatusEstoque.dataset.labels);
-                const values = JSON.parse(ctxStatusEstoque.dataset.values);
-                chartStatusEstoque = new Chart(ctxStatusEstoque, {
-                    type: 'pie',
-                    data: { labels, datasets: [{ label: 'Nº de Itens', data: values, backgroundColor: ['rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)', 'rgba(220, 53, 69, 0.7)'], hoverOffset: 4 }] }
-                });
-            }
-            updateChartTheme();
-        };
-
-        initCharts();
-        window.addEventListener('themeChanged', updateChartTheme);
-    });
-</script>
 {% endblock %}
-

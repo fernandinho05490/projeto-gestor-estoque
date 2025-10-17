@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Gestor de Estoque{% endblock %}</title>
-    <!-- Google Fonts (Inter) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -58,21 +57,45 @@
                 <i class="bi bi-box-seam-fill"></i> Gestor de Estoque
             </a>
 
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name == 'pdv' %}active{% endif %}" href="{% url 'pdv' %}">
-                        <i class="bi bi-pc-display-horizontal"></i> Frente de Caixa
-                    </a>
-                </li>
-            </ul>
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_estoque' %}active{% endif %}" href="{% url 'dashboard_estoque' %}">
+                            <i class="bi bi-house-door-fill"></i> Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'pdv' %}active{% endif %}" href="{% url 'pdv' %}">
+                            <i class="bi bi-pc-display-horizontal"></i> Frente de Caixa
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'analises' in request.path %}active{% endif %}" href="{% url 'analises' %}">
+                            <i class="bi bi-bar-chart-line-fill"></i> Análises
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'clientes' in request.path %}active{% endif %}" href="{% url 'cliente_list' %}">
+                            <i class="bi bi-people-fill"></i> Clientes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'compras' in request.path %}active{% endif %}" href="{% url 'compras' %}">
+                            <i class="bi bi-cart-check-fill"></i> Compras
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'relatorios' in request.path %}active{% endif %}" href="{% url 'relatorios' %}">
+                            <i class="bi bi-clipboard-data-fill"></i> Relatórios
+                        </a>
+                    </li>
+                </ul>
 
-            <div class="flex-grow-1 d-none d-lg-block">
-                <form class="ms-lg-4 search-form" action="{% url 'search_results' %}" method="get">
+                <form class="d-flex ms-lg-4 search-form" action="{% url 'search_results' %}" method="get">
                     <input class="form-control" type="search" name="q" placeholder="Pesquisar variações..." aria-label="Search" value="{{ request.GET.q }}">
                 </form>
             </div>
-            
-            <div class="d-flex align-items-center ms-auto">
+            <div class="d-flex align-items-center ms-lg-3">
                 {% if user.is_authenticated %}
                     {% if perms.estoque.change_variacao %}
                     <div class="dropdown me-3">
@@ -106,21 +129,6 @@
                             <span class="d-none d-md-inline">{{ user.get_full_name|default:user.username }}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-                            <!-- INÍCIO DA ALTERAÇÃO FINAL -->
-                            {% if perms.estoque.view_cliente %}
-                            <li><a class="dropdown-item" href="{% url 'cliente_list' %}"><i class="bi bi-people-fill me-2"></i>Clientes</a></li>
-                            {% endif %}
-                            <!-- FIM DA ALTERAÇÃO FINAL -->
-
-                            {% if perms.estoque.add_ordemdecompra %}
-                            <li><a class="dropdown-item" href="{% url 'compras' %}"><i class="bi bi-plus-circle-fill me-2"></i>Criar Pedido</a></li>
-                            <li><a class="dropdown-item" href="{% url 'ordem_compra_list' %}"><i class="bi bi-card-list me-2"></i>Ver Pedidos</a></li>
-                            {% endif %}
-                            
-                            {% if perms.estoque.change_variacao %}
-                            <li><a class="dropdown-item" href="{% url 'relatorios' %}"><i class="bi bi-clipboard-data-fill me-2"></i>Relatórios</a></li>
-                            {% endif %}
-                            
                             {% if user.is_superuser %}
                             <li><a class="dropdown-item" href="/admin" target="_blank"><i class="bi bi-gear-fill me-2"></i>Painel Admin</a></li>
                             <li><hr class="dropdown-divider"></li>
@@ -141,6 +149,9 @@
                 <button class="btn btn-dark theme-toggle ms-2" id="themeToggleBtn" title="Alterar tema">
                     <i class="bi bi-sun-fill"></i>
                     <i class="bi bi-moon-stars-fill"></i>
+                </button>
+                <button class="navbar-toggler ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
                 </button>
             </div>
         </div>
@@ -173,4 +184,3 @@
     {% block scripts_extra %}{% endblock %}
 </body>
 </html>
-

@@ -20,6 +20,7 @@ from .views import (
     # Nossas novas views de CRM
     cliente_list_view,
     cliente_detail_view,
+    analises_view, 
 )
 
 urlpatterns = [
@@ -27,6 +28,7 @@ urlpatterns = [
     path('', dashboard_estoque, name='dashboard_estoque'),
     path('search/', search_view, name='search_results'),
     path('movimentacao/registrar/', registrar_movimentacao, name='registrar_movimentacao'),
+    path('analises/', analises_view, name='analises'),
 
     # URLs de Clientes (CRM)
     path('clientes/', cliente_list_view, name='cliente_list'),
