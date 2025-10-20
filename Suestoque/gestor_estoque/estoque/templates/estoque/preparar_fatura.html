@@ -1,0 +1,57 @@
+{% extends 'estoque/base.html' %}
+
+{% block title %}Preparar Fatura - {{ cliente.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">Preparar Fatura para {{ cliente.nome }}</h1>
+    <a href="{% url 'cliente_detail' cliente.id %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Voltar aos Detalhes
+    </a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">Itens da Compra ({{ data_compra|date:"d/m/Y H:i" }})</div>
+    <ul class="list-group list-group-flush">
+        {% for item in itens %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ item.variacao }}</span>
+            <span class="text-secondary">{{ item.quantidade }} x R$ {{ item.variacao.preco_de_venda|floatformat:2 }}</span>
+            <span class="fw-bold">R$ {% widthratio item.quantidade 1 item.variacao.preco_de_venda %}</span>
+        </li>
+        {% endfor %}
+        <li class="list-group-item d-flex justify-content-end align-items-center bg-light">
+            <span class="fw-bold me-3">Subtotal dos Itens:</span>
+            <span class="fw-bold fs-5">R$ {{ subtotal|floatformat:2 }}</span>
+        </li>
+    </ul>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header fw-bold">Adicionar Frete e Desconto (Opcional)</div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="frete" class="form-label">Valor do Frete (R$)</label>
+                    <input type="text" inputmode="decimal" class="form-control" id="frete" name="frete" placeholder="Ex: 15,50">
+                </div>
+                <div class="col-md-6">
+                    <label for="desconto" class="form-label">Valor do Desconto (R$)</label>
+                    <input type="text" inputmode="decimal" class="form-control" id="desconto" name="desconto" placeholder="Ex: 10,00">
+                </div>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="submit" name="gerar_csv" class="btn btn-secondary me-2">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Gerar CSV
+                </button>
+                <button type="submit" name="gerar_pdf" class="btn btn-primary">
+                    <i class="bi bi-file-earmark-pdf"></i> Gerar PDF
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

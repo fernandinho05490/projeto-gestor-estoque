@@ -1,108 +1,111 @@
 {% extends 'estoque/base.html' %}
 {% load humanize %}
 
-{% block title %}Análise de {{ cliente.nome }}{% endblock %}
+{% block title %}
+  Análise de {{ cliente.nome }}
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="h2 mb-0">Análise de Cliente: <span class="text-primary">{{ cliente.nome }}</span></h1>
-        <p class="text-secondary">Informações de contato e histórico de compras.</p>
+      <h1 class="h2 mb-0">Análise de Cliente: <span class="text-primary">{{ cliente.nome }}</span></h1>
+      <p class="text-secondary">Informações de contato e histórico de compras.</p>
     </div>
-    <a href="{% url 'cliente_list' %}" class="btn btn-dark">
-        <i class="bi bi-arrow-left"></i> Voltar para a Lista
-    </a>
-</div>
+    <a href="{% url 'cliente_list' %}" class="btn btn-dark"><i class="bi bi-arrow-left"></i> Voltar para a Lista</a>
+  </div>
 
-<div class="row g-4 mb-5">
+  <div class="row g-4 mb-5">
     <div class="col-lg-3 col-md-6">
-        <div class="card h-100 shadow-sm"><div class="card-body text-center">
-            <h3 class="card-title h3 fw-bold text-success">R$ {{ total_gasto|floatformat:2|intcomma }}</h3>
-            <p class="card-text text-secondary">Total Gasto (Lifetime)</p>
-        </div></div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="card h-100 shadow-sm"><div class="card-body text-center">
-            <h3 class="card-title h3 fw-bold text-info">R$ {{ total_lucro|floatformat:2|intcomma }}</h3>
-            <p class="card-text text-secondary">Lucro Gerado</p>
-        </div></div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="card h-100 shadow-sm"><div class="card-body text-center">
-            <h3 class="card-title h3 fw-bold">R$ {{ ticket_medio|floatformat:2|intcomma }}</h3>
-            <p class="card-text text-secondary">Gasto Médio por Compra</p>
-        </div></div>
-    </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="card h-100 shadow-sm"><div class="card-body text-center">
-            <h3 class="card-title h3 fw-bold">{{ frequencia_texto }}</h3>
-            <p class="card-text text-secondary">Frequência Média</p>
-        </div></div>
-    </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-lg-4">
-        <div class="card shadow-sm">
-            <div class="card-header fw-bold"><i class="bi bi-star-fill text-warning"></i> Produtos Favoritos</div>
-            <ul class="list-group list-group-flush">
-                {% for item in produtos_favoritos %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <small>{{ item.nome_completo }}</small>
-                    <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ item.qtd_comprada }} un.</span>
-                </li>
-                {% empty %}
-                <li class="list-group-item text-secondary text-center">Sem dados de produtos.</li>
-                {% endfor %}
-            </ul>
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h3 class="card-title h3 fw-bold text-success">R$ {{ total_gasto|floatformat:2|intcomma }}</h3>
+          <p class="card-text text-secondary">Total Gasto (Lifetime)</p>
         </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h3 class="card-title h3 fw-bold text-info">R$ {{ total_lucro|floatformat:2|intcomma }}</h3>
+          <p class="card-text text-secondary">Lucro Gerado</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h3 class="card-title h3 fw-bold">R$ {{ ticket_medio|floatformat:2|intcomma }}</h3>
+          <p class="card-text text-secondary">Gasto Médio por Compra</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h3 class="card-title h3 fw-bold">{{ frequencia_texto }}</h3>
+          <p class="card-text text-secondary">Frequência Média</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold">
+          <i class="bi bi-star-fill text-warning"></i> Produtos Favoritos
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for item in produtos_favoritos %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <small>{{ item.nome_completo }}</small>
+              <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ item.qtd_comprada }} un.</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-secondary text-center">Sem dados de produtos.</li>
+          {% endfor %}
+        </ul>
+      </div>
     </div>
     <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-header fw-bold"><i class="bi bi-receipt"></i> Histórico de Compras ({{ num_compras }})</div>
-            
-            <div class="accordion accordion-flush" id="accordionCompras">
-                {% for compra in compras_agrupadas %}
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="heading{{ forloop.counter }}">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="false" aria-controls="collapse{{ forloop.counter }}">
-                            <div class="d-flex justify-content-between w-100 pe-3">
-                                <span><i class="bi bi-calendar3 me-2"></i> {{ compra.data|date:"d/m/Y H:i" }}</span>
-                                <span class="text-secondary">{{ compra.total_itens }} itens</span>
-                                <span class="fw-bold text-success">R$ {{ compra.total_valor|floatformat:2 }}</span>
-                            </div>
-                        </button>
-                    </h2>
-                    <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="heading{{ forloop.counter }}" data-bs-parent="#accordionCompras">
-                        <div class="accordion-body p-0">
-                            <table class="table table-sm mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Produto</th>
-                                        <th class="text-center">Qtd.</th>
-                                        <th class="text-end">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in compra.itens %}
-                                    <tr>
-                                        <td><small>{{ item.variacao }}</small></td>
-                                        <td class="text-center">{{ item.quantidade }}</td>
-                                        <td class="text-end">R$ {% widthratio item.quantidade 1 item.variacao.preco_de_venda %}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold">
+          <i class="bi bi-receipt"></i> Histórico de Compras ({{ num_compras }} transações)
+        </div>
+        <div class="accordion accordion-flush" id="historicoComprasAccordion">
+          {% for compra_grupo in compras_agrupadas %}
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="heading-{{ compra_grupo.id }}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ compra_grupo.id }}" aria-expanded="false" aria-controls="collapse-{{ compra_grupo.id }}">
+                  <div class="d-flex w-100 justify-content-between pe-3">
+                    <span><i class="bi bi-calendar3 me-2"></i> {{ compra_grupo.data|date:'d/m/Y H:i' }}</span>
+                    <span>{{ compra_grupo.total_itens }} itens</span>
+                    <span class="fw-bold text-success">R$ {{ compra_grupo.total_valor|floatformat:2 }}</span>
+                  </div>
+                </button>
+              </h2>
+              <div id="collapse-{{ compra_grupo.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ compra_grupo.id }}" data-bs-parent="#historicoComprasAccordion">
+                <div class="accordion-body p-0">
+                  <ul class="list-group list-group-flush mb-0">
+                    {% for item in compra_grupo.itens %}
+                      <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <small>{{ item.variacao }}</small>
+                        <small class="text-secondary">{{ item.quantidade }} x R$ {{ item.variacao.preco_de_venda|floatformat:2 }}</small>
+                        <small class="fw-bold">R${% widthratio item.quantidade 1 item.variacao.preco_de_venda %}</small>
+                      </li>
+                    {% endfor %}
+                    <li class="list-group-item text-end bg-light">
+                      <a href="{% url 'preparar_fatura' cliente.id compra_grupo.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-text"></i> Gerar Fatura</a>
+                    </li>
+                  </ul>
                 </div>
-                {% empty %}
-                <div class="card-body text-center text-secondary">
-                    Nenhuma compra registrada para este cliente.
-                </div>
-                {% endfor %}
+              </div>
             </div>
-            </div>
+          {% empty %}
+            <div class="card-body text-center text-secondary py-5">Nenhuma compra registrada para este cliente.</div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
-</div>
+  </div> {# Fim da Row #}
 {% endblock %}

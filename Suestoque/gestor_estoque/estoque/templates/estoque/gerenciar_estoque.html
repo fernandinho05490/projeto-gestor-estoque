@@ -1,0 +1,36 @@
+{% extends 'estoque/base.html' %}
+
+{% block title %}Gerenciar Estoque{% endblock %}
+
+{% block content %}
+<div class.php
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">Gerenciar Estoque</h1>
+    <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#movimentacaoModal">
+        <i class="bi bi-plus-circle-fill"></i> Registrar Movimentação
+    </button>
+</div>
+
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <div>
+        <a href="{% url 'gerenciar_estoque' %}" class="btn btn-sm {% if not filtro_status %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+        <a href="?filtro=atencao" class="btn btn-sm {% if filtro_status == 'atencao' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Atenção</a>
+        <a href="?filtro=perigo" class="btn btn-sm {% if filtro_status == 'perigo' %}btn-danger{% else %}btn-outline-secondary{% endif %}">Perigo</a>
+    </div>
+    {% if filtro_status %}
+        <a href="{% url 'gerenciar_estoque' %}" class="btn btn-secondary btn-sm"><i class="bi bi-x-circle"></i> Limpar Filtro</a>
+    {% endif %}
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header fw-bold">
+        {{ titulo_tabela }}
+    </div>
+    <div class="table-responsive">
+        {% include 'estoque/partials/tabela_estoque.html' %}
+    </div>
+</div>
+
+{% include 'estoque/partials/modal_movimentacao.html' %} 
+
+{% endblock %}

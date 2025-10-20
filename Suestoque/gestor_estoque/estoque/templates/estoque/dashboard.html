@@ -1,6 +1,94 @@
 {% extends 'estoque/base.html' %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}Página Inicial{% endblock %}
+
+{% block head_extra %}
+{# Adiciona CSS customizado para o Assistente #}
+<style>
+    .assistente-container .list-group-item {
+        border: none; /* Remove bordas padrão da lista */
+        background-color: transparent;
+        padding: 0.75rem 0;
+        opacity: 0; /* Começa invisível para animação */
+        animation: fadeInAssistente 0.5s ease-out forwards;
+    }
+
+    /* Animação de entrada */
+    @keyframes fadeInAssistente {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Atraso para cada item aparecer em sequência (opcional, mas legal) */
+    {% for sugestao in sugestoes_assistente %}
+    .assistente-container .list-group-item:nth-child({{ forloop.counter }}) {
+        animation-delay: {{ forloop.counter0|add:"1" }}00ms; /* 100ms, 200ms, 300ms... */
+    }
+    {% endfor %}
+
+    .assistente-mensagem {
+        display: flex;
+        align-items: flex-start; /* Alinha avatar no topo */
+    }
+
+    .assistente-avatar {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: var(--bs-primary); /* Cor do avatar */
+        color: var(--bs-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 0.75rem;
+    }
+    [data-bs-theme="light"] .assistente-avatar {
+         background-color: var(--bs-primary);
+         color: var(--bs-light);
+    }
+     [data-bs-theme="dark"] .assistente-avatar {
+         background-color: var(--bs-primary-bg-subtle); /* Ajuste de cor para tema escuro */
+         color: var(--bs-primary);
+    }
+
+
+    .assistente-balao {
+        background-color: var(--bs-tertiary-bg); /* Cor de fundo do balão */
+        border-radius: 15px;
+        padding: 0.75rem 1rem;
+        flex-grow: 1;
+        position: relative; /* Para a "setinha" */
+    }
+    
+    /* "Setinha" do balão apontando para o avatar */
+    .assistente-balao::before {
+        content: '';
+        position: absolute;
+        left: -8px; /* Posição da seta */
+        top: 10px;
+        width: 0; 
+        height: 0; 
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-right: 8px solid var(--bs-tertiary-bg); /* Mesma cor do balão */
+    }
+
+    .assistente-texto {
+        margin-bottom: 0.5rem;
+    }
+    
+    .assistente-acao a {
+        font-weight: 500;
+        text-decoration: none;
+    }
+    .assistente-acao a:hover {
+        text-decoration: underline;
+    }
+
+</style>
+{% endblock %}
+
 
 {% block content %}
 {% if messages %}
@@ -14,9 +102,6 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Página Inicial</h1>
-    <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#movimentacaoModal">
-        <i class="bi bi-plus-circle-fill"></i> Registrar Movimentação
-    </button>
 </div>
 
 <div class="card shadow-sm mb-5">
@@ -33,7 +118,7 @@
                 <span class="fs-5 text-secondary fw-normal"> de R$ {{ meta_venda.valor_meta|floatformat:2 }}</span>
             </p>
             <div class="progress" style="height: 20px;">
-                <div class="progress-bar bg-success" role="progressbar" style="width: {{ progresso_percentual }}%;" aria-valuenow="{{ progresso_percentual }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-success" role="progressbar" style="width: {{ progresso_percentual }}%;" aria-valuenow="{{ progresso.percentual }}" aria-valuemin="0" aria-valuemax="100">
                     {{ progresso_percentual }}%
                 </div>
             </div>
@@ -53,32 +138,71 @@
     </div>
 </div>
 
+<div class="assistente-container mb-5">
+    <h2 class="h5 section-title">Assistente do Gestor</h2>
+    {% if sugestoes_assistente %}
+        {% for sugestao in sugestoes_assistente %}
+            {# Define a cor do alerta com base no tipo da sugestão #}
+            {% with alert_color='info' %} {# Cor padrão #}
+                {% if sugestao.tipo == 'alerta_estoque' %}
+                    {% with alert_color='danger' %}{% endwith %}
+                {% elif sugestao.tipo == 'oportunidade' %}
+                    {% with alert_color='success' %}{% endwith %}
+                {% elif sugestao.tipo == 'estoque_parado' %}
+                     {% with alert_color='warning' %}{% endwith %}
+                {% endif %}
+            
+                <div class="alert alert-{{ alert_color }} d-flex align-items-center shadow-sm mb-3" role="alert">
+                    <i class="bi {{ sugestao.icone }} fs-4 me-3"></i>
+                    <div class="flex-grow-1">
+                        {% autoescape off %}{{ sugestao.texto }}{% endautoescape %}
+                        {% if sugestao.link_url and sugestao.link_texto %}
+                            <a href="{{ sugestao.link_url }}" {% if 'wa.me' in sugestao.link_url %}target="_blank"{% endif %} class="alert-link fw-semibold ms-2">
+                                {{ sugestao.link_texto }} <i class="bi bi-arrow-right-short"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endwith %} {# Fim do with alert_color #}
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-secondary d-flex align-items-center shadow-sm border-0" role="alert" style="background-color: var(--bs-tertiary-bg);">
+             <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
+             <div class="text-secondary">
+                 Tudo certo por aqui! Nenhuma ação urgente necessária no momento.
+             </div>
+        </div>
+    {% endif %}
+</div>
 <h2 class="h5 section-title">Desempenho por Período</h2>
 <div class="row g-4 mb-5">
     {% include 'estoque/partials/cards_desempenho.html' %}
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-2">
-    <h2 class="h5 section-title mb-0">
-        {% if filtro_status == 'perigo' %}
-            Mostrando Apenas Variações com Reposição Urgente
-        {% else %}
-            Situação Detalhada do Estoque por Variação
-        {% endif %}
-    </h2>
-    {% if filtro_status %}
-    <a href="{% url 'dashboard_estoque' %}" class="btn btn-secondary btn-sm"><i class="bi bi-x-circle"></i> Limpar Filtro</a>
-    {% endif %}
-</div>
-<div class="card shadow-sm">
-    <div class="table-responsive">
-        {% include 'estoque/partials/tabela_estoque.html' %}
-    </div>
+</div> <div class="acoes-rapidas-container mb-5">
+    <h2 class="h5 section-title">Ações Rápidas</h2>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="{% url 'pdv' %}" class="btn btn-lg btn-primary w-100 py-3 shadow-sm">
+                <i class="bi bi-pc-display-horizontal me-2"></i> Ir para Frente de Caixa
+            </a>
+        </div>
+        <div class="col-md-4">
+             <a href="{% url 'gerenciar_estoque' %}" class="btn btn-lg btn-secondary w-100 py-3 shadow-sm">
+                <i class="bi bi-boxes me-2"></i> Gerenciar Estoque
+            </a>
+        </div>
+        <div class="col-md-4">
+             <a href="{% url 'cliente_list' %}" class="btn btn-lg btn-secondary w-100 py-3 shadow-sm">
+                <i class="bi bi-people-fill me-2"></i> Ver Clientes
+            </a>
+        </div>
+        </div>
 </div>
 
-{% include 'estoque/partials/modal_movimentacao.html' %}
 {% endblock %}
 
 
 {% block scripts_extra %}
+{# Scripts extras podem ser necessários se quisermos interações mais complexas no futuro #}
 {% endblock %}

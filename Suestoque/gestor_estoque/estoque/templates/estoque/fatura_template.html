@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Fatura {{ cliente.nome }}</title>
+    <style>
+        body { font-family: sans-serif; font-size: 12px; margin: 0; padding: 20px; }
+        .header, .footer { text-align: center; margin-bottom: 20px; }
+        .cliente-info, .empresa-info { margin-bottom: 20px; padding: 10px; border: 1px solid #eee; }
+        .cliente-info { float: left; width: 45%; }
+        .empresa-info { float: right; width: 45%; text-align: right;}
+        .clear { clear: both; }
+        h1, h2, h3 { margin: 5px 0; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .text-right { text-align: right; }
+        .total-section { float: right; width: 40%; }
+        .total-section td { border: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Fatura</h1>
+        <p>Data de Emissão: {{ data_emissao|date:"d/m/Y H:i" }}</p>
+    </div>
+
+    <div class="empresa-info">
+        <h3>{{ empresa_nome }}</h3>
+        <p>{{ empresa_endereco }}</p>
+        <p>{{ empresa_contato }}</p>
+    </div>
+
+    <div class="cliente-info">
+        <h3>Cliente:</h3>
+        <p><strong>{{ cliente.nome }}</strong></p>
+        {% if cliente.email %}<p>{{ cliente.email }}</p>{% endif %}
+        {% if cliente.telefone %}<p>{{ cliente.telefone }}</p>{% endif %}
+    </div>
+
+    <div class="clear"></div>
+
+    <h3>Itens</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Descrição</th>
+                <th class="text-right">Qtd.</th>
+                <th class="text-right">Preço Unit.</th>
+                <th class="text-right">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in itens %}
+            <tr>
+                <td>{{ item.variacao }}</td>
+                <td class="text-right">{{ item.quantidade }}</td>
+                <td class="text-right">R$ {{ item.variacao.preco_de_venda|floatformat:2 }}</td>
+                <td class="text-right">R$ {% widthratio item.quantidade 1 item.variacao.preco_de_venda %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total-section">
+        <table>
+            <tbody>
+                <tr>
+                    <td>Subtotal Itens:</td>
+                    <td class="text-right">R$ {{ subtotal|floatformat:2 }}</td>
+                </tr>
+                {% if frete > 0 %}
+                <tr>
+                    <td>Frete:</td>
+                    <td class="text-right">R$ {{ frete|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                 {% if desconto > 0 %}
+                <tr>
+                    <td>Desconto:</td>
+                    <td class="text-right">- R$ {{ desconto|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td><strong>Total Geral:</strong></td>
+                    <td class="text-right"><strong>R$ {{ total|floatformat:2 }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="clear"></div>
+
+    <div class="footer">
+        <p>Obrigado pela sua compra!</p>
+    </div>
+
+</body>
+</html>

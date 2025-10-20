@@ -17,10 +17,12 @@ from .views import (
     search_variacoes_pdv,
     finalizar_venda_pdv,
     search_clientes_pdv,
+    gerenciar_estoque_view,
     # Nossas novas views de CRM
     cliente_list_view,
     cliente_detail_view,
-    analises_view, 
+    analises_view,
+    preparar_fatura_view,
 )
 
 urlpatterns = [
@@ -29,6 +31,7 @@ urlpatterns = [
     path('search/', search_view, name='search_results'),
     path('movimentacao/registrar/', registrar_movimentacao, name='registrar_movimentacao'),
     path('analises/', analises_view, name='analises'),
+    path('estoque/', gerenciar_estoque_view, name='gerenciar_estoque'),
 
     # URLs de Clientes (CRM)
     path('clientes/', cliente_list_view, name='cliente_list'),
@@ -51,6 +54,7 @@ urlpatterns = [
     path('relatorios/', relatorios_view, name='relatorios'),
     path('relatorio/vendas/<str:periodo>/', relatorio_vendas_view, name='relatorio_vendas'),
     path('relatorios/pdf/', exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
+    path('fatura/preparar/<int:cliente_id>/<str:grupo_id>/', preparar_fatura_view, name='preparar_fatura'),
     
     # URLs de Autenticação
     path('login/', CustomLoginView.as_view(), name='login'),
