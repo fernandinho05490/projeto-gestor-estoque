@@ -15,14 +15,13 @@ As views são organizadas em seções lógicas:
 # --- Importações ---
 
 # Bibliotecas Padrão do Python
+import csv
 import json
 from datetime import timedelta
 from urllib.parse import quote
 from collections import defaultdict
 from decimal import Decimal
 
-
-import csv
 # Django Core
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -35,6 +34,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.utils.dateformat import format as format_date
 from django.views.decorators.http import require_POST
 
@@ -757,41 +757,59 @@ def cliente_list_view(request):
 def cliente_detail_view(request, pk):
     """
     Exibe um dashboard detalhado para um cliente específico.
-    (VERSÃO COM IDENTIFICADOR PARA FATURA)
+    (VERSÃO COM IDs DE MOVIMENTAÇÃO PARA FATURA)
     """
     cliente = get_object_or_404(Cliente, pk=pk)
+    # Ordena por data DESCENDENTE primeiro para agrupar corretamente
     compras = cliente.compras.order_by('-data').select_related('variacao__produto')
     compras_agrupadas = []
 
     if compras:
         transacoes = defaultdict(list)
-        primeira_compra_grupo = compras[0]
+        # Usa a data/hora da *primeira* movimentação do grupo como chave temporária
+        chave_grupo_atual = None
+        data_primeira_movimentacao_grupo = None
+
         for compra in compras:
-            # Agrupa compras que ocorreram com até 5 segundos de diferença (aumentei um pouco a janela)
-            if (primeira_compra_grupo.data - compra.data).total_seconds() < 5:
-                transacoes[primeira_compra_grupo.id].append(compra)
+            if chave_grupo_atual is None:
+                chave_grupo_atual = compra.id # Usa o ID da primeira como chave inicial
+                data_primeira_movimentacao_grupo = compra.data
+                transacoes[chave_grupo_atual].append(compra)
             else:
-                primeira_compra_grupo = compra
-                transacoes[primeira_compra_grupo.id].append(compra)
+                # Agrupa compras que ocorreram com até 5 segundos da *primeira* daquele grupo
+                if (data_primeira_movimentacao_grupo - compra.data).total_seconds() < 5:
+                    transacoes[chave_grupo_atual].append(compra)
+                else:
+                    # Inicia um novo grupo
+                    chave_grupo_atual = compra.id
+                    data_primeira_movimentacao_grupo = compra.data
+                    transacoes[chave_grupo_atual].append(compra)
 
-        for id_transacao, itens in transacoes.items():
-            total_itens_grupo = sum(item.quantidade for item in itens)
-            total_valor_grupo = sum(item.quantidade * item.variacao.preco_de_venda for item in itens)
-            data_grupo = itens[0].data # Data da primeira movimentação do grupo
+        # Processa os grupos para calcular totais e IDs
+        for id_chave, itens_lista in transacoes.items():
+            # Reordena os itens pela data original (ascendente) dentro do grupo
+            itens_ordenados = sorted(itens_lista, key=lambda item: item.data)
+            
+            total_itens_grupo = sum(item.quantidade for item in itens_ordenados)
+            total_valor_grupo = sum(item.quantidade * item.variacao.preco_de_venda for item in itens_ordenados)
+            data_grupo = itens_ordenados[0].data # Data da primeira movimentação real do grupo
 
-            # --- NOVO: Cria um ID único para o grupo baseado na data/hora ---
-            # Formato: YYYYMMDDHHMMSSffffff (AnoMesDiaHoraMinutoSegundoMicrosegundo)
-            # Isso garante um ID único mesmo para compras muito próximas
-            grupo_id = format_date(data_grupo, 'YmdHisu')
+            # --- NOVO: Coleta os IDs das movimentações e cria a string ---
+            movimentacao_ids = [str(item.id) for item in itens_ordenados]
+            movimentacao_ids_str = ",".join(movimentacao_ids)
             # -----------------------------------------------------------------
 
             compras_agrupadas.append({
-                'id': grupo_id, # Adiciona o ID ao dicionário
+                'movimentacao_ids_str': movimentacao_ids_str, # String de IDs para a URL
                 'data': data_grupo,
                 'total_itens': total_itens_grupo,
                 'total_valor': total_valor_grupo,
-                'itens': itens,
+                'itens': itens_ordenados, # Lista ordenada dos objetos MovimentacaoEstoque
             })
+        
+        # Reordena os grupos pela data (mais recente primeiro) para exibição
+        compras_agrupadas = sorted(compras_agrupadas, key=lambda g: g['data'], reverse=True)
+
 
     # ... (Resto da lógica da view: métricas, frequência, favoritos - sem alterações) ...
     metricas = compras.aggregate( total_gasto=Sum(F('quantidade') * F('variacao__preco_de_venda'), default=Decimal('0')), total_lucro=Sum(F('quantidade') * (F('variacao__preco_de_venda') - F('variacao__preco_de_custo')), default=Decimal('0')) )
@@ -814,7 +832,6 @@ def cliente_detail_view(request, pk):
     produtos_favoritos = list(produtos_favoritos_qs)
     for item in produtos_favoritos: item['nome_completo'] = nomes_favoritos.get(item['variacao__id'])
 
-
     context = {
         'cliente': cliente,
         'compras_agrupadas': compras_agrupadas,
@@ -831,119 +848,101 @@ def cliente_detail_view(request, pk):
 # prepara faturas dos clientes
 
 @login_required
-def preparar_fatura_view(request, cliente_id, grupo_id):
+def preparar_fatura_view(request, cliente_id, movimentacao_ids):
     """
     Exibe um formulário para adicionar frete/desconto e dispara
-    a geração da fatura em PDF ou CSV para um grupo de compras.
+    a geração da fatura em PDF ou CSV, usando a DATA DA COMPRA.
     """
     cliente = get_object_or_404(Cliente, pk=cliente_id)
 
-    # --- Lógica para re-obter os itens do grupo ---
-    # Converte o ID de volta para um objeto datetime aproximado
+    # --- Lógica para obter os itens usando os IDs (sem alterações) ---
     try:
-        data_inicio_grupo = timezone.datetime.strptime(grupo_id, '%Y%m%d%H%M%S%f')
-        data_inicio_grupo = timezone.make_aware(data_inicio_grupo) # Torna timezone-aware
-    except ValueError:
+        ids_list = [int(id_str) for id_str in movimentacao_ids.split(',') if id_str.isdigit()]
+        if not ids_list: raise ValueError("Nenhum ID de movimentação válido.")
+    except (ValueError, TypeError):
         messages.error(request, "Identificador de compra inválido.")
         return redirect('cliente_detail', pk=cliente_id)
 
-    # Busca movimentações do cliente próximas a essa data (janela de 5 segundos)
-    data_fim_grupo = data_inicio_grupo + timedelta(seconds=5)
     itens_fatura = MovimentacaoEstoque.objects.filter(
-        cliente=cliente,
-        tipo=TIPO_SAIDA,
-        data__gte=data_inicio_grupo,
-        data__lt=data_fim_grupo # Ajuste aqui para pegar o intervalo correto
+        cliente=cliente, tipo=TIPO_SAIDA, pk__in=ids_list
     ).select_related('variacao').order_by('data')
 
-    if not itens_fatura:
-        messages.error(request, "Não foi possível encontrar os itens para esta fatura.")
+    if not itens_fatura or len(itens_fatura) != len(ids_list):
+        messages.error(request, "Não foi possível encontrar todos os itens para esta fatura.")
         return redirect('cliente_detail', pk=cliente_id)
 
     subtotal = sum(item.quantidade * item.variacao.preco_de_venda for item in itens_fatura)
+    # Pega a data da *primeira* movimentação do grupo
+    data_compra_obj = itens_fatura.first().data
 
     if request.method == 'POST':
         try:
-            frete_str = request.POST.get('frete', '0').replace(',', '.')
-            desconto_str = request.POST.get('desconto', '0').replace(',', '.')
-            
-            frete = Decimal(frete_str) if frete_str else Decimal('0')
-            desconto = Decimal(desconto_str) if desconto_str else Decimal('0')
-
-            if desconto < 0 or frete < 0:
-                 raise ValueError("Valores não podem ser negativos.")
-            
+            frete_str = request.POST.get('frete', '0').replace(',', '.'); frete = Decimal(frete_str) if frete_str else Decimal('0')
+            desconto_str = request.POST.get('desconto', '0').replace(',', '.'); desconto = Decimal(desconto_str) if desconto_str else Decimal('0')
+            if desconto < 0 or frete < 0: raise ValueError("Valores não podem ser negativos.")
             total = subtotal + frete - desconto
 
+            # --- CONTEXTO ATUALIZADO: Usar data_compra_obj para data_emissao ---
             context_fatura = {
-                'cliente': cliente,
-                'itens': itens_fatura,
-                'subtotal': subtotal,
-                'frete': frete,
-                'desconto': desconto,
-                'total': total,
-                'data_emissao': timezone.now(),
-                # Adicione informações da sua empresa aqui (hardcoded ou de settings)
-                'empresa_nome': "Nome da Sua Empresa",
-                'empresa_endereco': "Seu Endereço Completo",
-                'empresa_contato': "Seu Telefone / Email",
+                'cliente': cliente, 'itens': itens_fatura, 'subtotal': subtotal, 'frete': frete,
+                'desconto': desconto, 'total': total,
+                'data_emissao': data_compra_obj, # <-- MUDANÇA AQUI
+                'empresa_nome': "Nome da Sua Empresa", 'empresa_endereco': "Seu Endereço", 'empresa_contato': "Seu Contato",
+                'movimentacao_ids': movimentacao_ids,
             }
 
+            # --- NOME DO ARQUIVO (Usa data_compra_obj) ---
+            data_formatada = data_compra_obj.strftime('%d-%m-%Y')
+            nome_slug = slugify(cliente.nome)
+            nome_arquivo_base = f'Fatura_{nome_slug}-{data_formatada}'
+            # --- FIM ---
+
             if 'gerar_pdf' in request.POST:
-                # Renderiza o template HTML da fatura
                 html_string = render_to_string('estoque/fatura_template.html', context_fatura)
                 if WEASYPRINT_DISPONIVEL:
                     pdf_file = HTML(string=html_string).write_pdf()
                     response = HttpResponse(pdf_file, content_type='application/pdf')
-                    response['Content-Disposition'] = f'attachment; filename="fatura_{cliente.nome}_{grupo_id}.pdf"'
+                    response['Content-Disposition'] = f'attachment; filename="{nome_arquivo_base}.pdf"'
                     return response
                 else:
                     messages.error(request, "Erro ao gerar PDF: Biblioteca WeasyPrint não encontrada.")
-                    # Fallback: retornar o HTML para visualização?
-                    # return HttpResponse(html_string) 
-                    return redirect(request.path) # Recarrega a página do formulário
+                    return redirect(request.path)
 
             elif 'gerar_csv' in request.POST:
-                response = HttpResponse(content_type='text/csv')
-                response['Content-Disposition'] = f'attachment; filename="fatura_{cliente.nome}_{grupo_id}.csv"'
-                
-                writer = csv.writer(response, delimiter=';') # Usar ; como delimitador é comum no Brasil
-                
-                # Cabeçalho da Fatura (Exemplo)
+                response = HttpResponse(content_type='text/csv; charset=utf-8')
+                response['Content-Disposition'] = f'attachment; filename="{nome_arquivo_base}.csv"'
+                writer = csv.writer(response, delimiter=';')
+                # --- CSV ATUALIZADO: Usa data_compra_obj e muda label ---
                 writer.writerow(['Fatura Cliente:', cliente.nome])
-                writer.writerow(['Data Emissão:', format_date(timezone.now(), 'd/m/Y H:i')])
-                writer.writerow([]) # Linha em branco
-                
-                # Itens
-                writer.writerow(['Descrição', 'Qtd.', 'Preço Unit.', 'Subtotal'])
+                writer.writerow(['Data Compra:', data_compra_obj.strftime('%d/%m/%Y %H:%M')]) # <-- MUDANÇA AQUI
+                # writer.writerow(['Data Emissão:', format_date(timezone.now(), 'd/m/Y H:i')]) # Linha removida/alterada
+                writer.writerow([])
+                writer.writerow(['Descrição', 'Qtd.', 'Preço Unit. (R$)', 'Subtotal (R$)'])
                 for item in itens_fatura:
                     writer.writerow([
-                        str(item.variacao), 
-                        item.quantidade,
+                        str(item.variacao), item.quantidade,
                         f"{item.variacao.preco_de_venda:.2f}".replace('.',','),
                         f"{(item.quantidade * item.variacao.preco_de_venda):.2f}".replace('.',','),
                     ])
-                writer.writerow([]) # Linha em branco
-
-                # Totais
-                writer.writerow(['Subtotal:', '', '', f"{subtotal:.2f}".replace('.',',')])
+                writer.writerow([])
+                writer.writerow(['Subtotal Itens:', '', '', f"{subtotal:.2f}".replace('.',',')])
                 writer.writerow(['Frete:', '', '', f"{frete:.2f}".replace('.',',')])
                 writer.writerow(['Desconto:', '', '', f"{desconto:.2f}".replace('.',',')])
-                writer.writerow(['TOTAL:', '', '', f"{total:.2f}".replace('.',',')])
-
+                writer.writerow(['TOTAL GERAL:', '', '', f"{total:.2f}".replace('.',',')])
                 return response
 
-        except (ValueError, TypeError):
-            messages.error(request, "Valores de frete ou desconto inválidos. Use apenas números.")
+        except (ValueError, TypeError) as e:
+            messages.error(request, f"Valores de frete ou desconto inválidos: {e}")
         except Exception as e:
-            messages.error(request, f"Ocorreu um erro inesperado: {e}")
+            messages.error(request, f"Ocorreu um erro inesperado ao gerar a fatura.")
 
-    # Se for GET ou se houve erro no POST, exibe o formulário
+    # Contexto para o formulário GET
     context = {
         'cliente': cliente,
         'itens': itens_fatura,
         'subtotal': subtotal,
-        'grupo_id': grupo_id,
+        'movimentacao_ids': movimentacao_ids,
+        'data_compra': data_compra_obj,
     }
     return render(request, 'estoque/preparar_fatura.html', context)
 

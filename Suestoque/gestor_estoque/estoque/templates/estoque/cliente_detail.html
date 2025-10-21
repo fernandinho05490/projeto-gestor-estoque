@@ -1,102 +1,271 @@
 {% extends 'estoque/base.html' %}
 {% load humanize %}
+{% load static %}
 
 {% block title %}
   Análise de {{ cliente.nome }}
 {% endblock %}
 
+{% block head_extra %}
+{# CSS Customizado para o "Design UAU" v2 #}
+<style>
+    /* Animação de entrada suave */
+    @keyframes fadeInSlideUp {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-entry {
+        opacity: 0;
+        animation: fadeInSlideUp 0.7s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; /* Curva de aceleração mais suave */
+    }
+    /* Atraso escalonado para elementos */
+    .kpi-card { animation-delay: 100ms; }
+    .produtos-card { animation-delay: 250ms; }
+    .historico-card { animation-delay: 400ms; }
+
+    /* Estilo "UAU" para KPIs */
+    .kpi-card .card {
+        border: none; /* Remove borda padrão */
+        background: linear-gradient(145deg, var(--bs-tertiary-bg), var(--bs-secondary-bg)); /* Gradiente sutil */
+        transition: transform 0.25s ease-out, box-shadow 0.25s ease-out;
+        border-radius: 0.75rem; /* Bordas mais arredondadas */
+    }
+    /* EFEITO HOVER CORRIGIDO E REFINADO */
+    .kpi-card .card:hover {
+        transform: translateY(-6px);
+        /* Sombra mais pronunciada e adaptativa ao tema */
+        box-shadow: 0 8px 25px rgba(var(--bs-body-color-rgb), 0.1); 
+    }
+    .kpi-card .card-body {
+        display: flex;
+        align-items: center;
+        padding: 1.25rem; /* Mais padding interno */
+    }
+    .kpi-icon-wrapper {
+        flex-shrink: 0;
+        width: 50px;
+        height: 50px;
+        border-radius: 12px; /* Quadrado arredondado */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        background-color: rgba(var(--bs-primary-rgb), 0.1); /* Fundo sutil para o ícone */
+        color: var(--bs-primary); /* Ícone na cor primária */
+    }
+     .kpi-icon-wrapper i {
+        font-size: 1.8rem; /* Tamanho do ícone */
+        line-height: 1; /* Alinhamento vertical */
+    }
+    /* Cores específicas por KPI */
+    .kpi-card.total-gasto .kpi-icon-wrapper { background-color: rgba(var(--bs-success-rgb), 0.1); color: var(--bs-success); }
+    .kpi-card.lucro-gerado .kpi-icon-wrapper { background-color: rgba(var(--bs-info-rgb), 0.1); color: var(--bs-info); }
+    .kpi-card.ticket-medio .kpi-icon-wrapper { background-color: rgba(var(--bs-warning-rgb), 0.1); color: var(--bs-warning); }
+    .kpi-card.frequencia .kpi-icon-wrapper { background-color: rgba(108, 117, 125, 0.1); color: var(--bs-secondary); } /* Cinza para frequência */
+
+    .kpi-value {
+        font-size: 1.5rem;
+        font-weight: 700; /* Mais peso */
+        margin-bottom: 0;
+        line-height: 1.2;
+        color: var(--bs-body-color);
+    }
+    .kpi-label {
+        font-size: 0.75rem; /* Label menor */
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--bs-secondary-color); /* Cinza mais claro */
+    }
+
+    /* Refinamentos no Accordion */
+     .historico-accordion .accordion-item {
+         background-color: transparent;
+         border: none;
+         border-bottom: 1px solid var(--bs-border-color-translucent);
+     }
+      .historico-accordion .accordion-item:last-child { border-bottom: none; }
+     .historico-accordion .accordion-button {
+         padding: 1rem 1.25rem;
+         font-weight: 500; /* Título do accordion mais leve */
+         background-color: transparent !important; /* Remove fundo branco */
+         box-shadow: none !important; /* Remove sombra ao clicar */
+     }
+      .historico-accordion .accordion-button:not(.collapsed) {
+          color: var(--bs-primary); /* Cor primária quando ativo */
+          border-bottom: 1px solid var(--bs-border-color-translucent); /* Linha sutil abaixo do header aberto */
+      }
+      .historico-accordion .accordion-button::after { /* Seta do accordion */
+         background-image: var(--bs-accordion-btn-icon); /* Garante que use a seta correta do tema */
+      }
+      .historico-accordion .accordion-body {
+          padding: 0;
+          background-color: var(--bs-secondary-bg);
+      }
+      .historico-accordion .list-group-item {
+         background-color: transparent;
+         border: none;
+         padding: 0.75rem 1.25rem; /* Mais padding vertical */
+         display: grid;
+         grid-template-columns: 1fr auto auto;
+         gap: 1.5rem; /* Mais espaço entre colunas */
+         align-items: center;
+         font-size: 0.9rem; /* Tamanho de fonte dos itens */
+         border-bottom: 1px dashed var(--bs-border-color-translucent); /* Linha tracejada entre itens */
+      }
+       .historico-accordion .list-group-item:last-child { border-bottom: none; }
+       .historico-accordion .list-group-item small:nth-child(2) { justify-self: end; font-size: 0.85rem; }
+       .historico-accordion .list-group-item small:nth-child(3) { justify-self: end; font-size: 0.9rem; }
+
+     /* Melhoria Visual Cards Laterais */
+     .produtos-card .card, .historico-card .card {
+         border: none; /* Remove borda */
+         background-color: var(--bs-body-bg); /* Garante fundo correto */
+     }
+      .produtos-card .list-group-item:hover {
+          background-color: var(--bs-tertiary-bg);
+      }
+
+</style>
+{% endblock %}
+
+
 {% block content %}
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h1 class="h2 mb-0">Análise de Cliente: <span class="text-primary">{{ cliente.nome }}</span></h1>
-      <p class="text-secondary">Informações de contato e histórico de compras.</p>
+  <div class="card shadow-sm mb-4 border-0 animate-entry" style="background-color: var(--bs-tertiary-bg);">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h1 class="h2 mb-1">Análise de Cliente: <span class="text-primary">{{ cliente.nome }}</span></h1>
+                <p class="text-secondary mb-2">Dashboard de valor, frequência e histórico de compras.</p>
+                <div class="d-flex gap-3">
+                    {% if cliente.telefone %}
+                    <a href="tel:{{ cliente.telefone }}" class="text-decoration-none text-secondary small">
+                        <i class="bi bi-telephone-fill me-1"></i> {{ cliente.telefone }}
+                    </a>
+                    {% endif %}
+                    {% if cliente.email %}
+                    <a href="mailto:{{ cliente.email }}" class="text-decoration-none text-secondary small">
+                        <i class="bi bi-envelope-fill me-1"></i> {{ cliente.email }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{% url 'cliente_list' %}" class="btn btn-dark flex-shrink-0"><i class="bi bi-arrow-left"></i> Voltar</a>
+        </div>
     </div>
-    <a href="{% url 'cliente_list' %}" class="btn btn-dark"><i class="bi bi-arrow-left"></i> Voltar para a Lista</a>
   </div>
 
+  <h2 class="h5 section-title animate-entry" style="animation-delay: 50ms;">Métricas de Valor</h2>
   <div class="row g-4 mb-5">
-    <div class="col-lg-3 col-md-6">
+    {# Adicionada classe específica para cor do ícone #}
+    <div class="col-lg-3 col-md-6 animate-entry kpi-card total-gasto">
       <div class="card h-100 shadow-sm">
-        <div class="card-body text-center">
-          <h3 class="card-title h3 fw-bold text-success">R$ {{ total_gasto|floatformat:2|intcomma }}</h3>
-          <p class="card-text text-secondary">Total Gasto (Lifetime)</p>
+        <div class="card-body">
+            <div class="kpi-icon-wrapper">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div>
+                <div class="kpi-value">R$ {{ total_gasto|floatformat:2|intcomma }}</div>
+                <div class="kpi-label text-secondary">Total Gasto</div>
+            </div>
         </div>
       </div>
     </div>
-    <div class="col-lg-3 col-md-6">
+    <div class="col-lg-3 col-md-6 animate-entry kpi-card lucro-gerado" style="animation-delay: 150ms;">
       <div class="card h-100 shadow-sm">
-        <div class="card-body text-center">
-          <h3 class="card-title h3 fw-bold text-info">R$ {{ total_lucro|floatformat:2|intcomma }}</h3>
-          <p class="card-text text-secondary">Lucro Gerado</p>
+        <div class="card-body">
+             <div class="kpi-icon-wrapper">
+                <i class="bi bi-piggy-bank-fill"></i>
+             </div>
+             <div>
+                <div class="kpi-value">R$ {{ total_lucro|floatformat:2|intcomma }}</div>
+                <div class="kpi-label text-secondary">Lucro Gerado</div>
+            </div>
         </div>
       </div>
     </div>
-    <div class="col-lg-3 col-md-6">
+    <div class="col-lg-3 col-md-6 animate-entry kpi-card ticket-medio" style="animation-delay: 250ms;">
       <div class="card h-100 shadow-sm">
-        <div class="card-body text-center">
-          <h3 class="card-title h3 fw-bold">R$ {{ ticket_medio|floatformat:2|intcomma }}</h3>
-          <p class="card-text text-secondary">Gasto Médio por Compra</p>
+        <div class="card-body">
+            <div class="kpi-icon-wrapper">
+                <i class="bi bi-receipt-cutoff"></i>
+            </div>
+            <div>
+                <div class="kpi-value">R$ {{ ticket_medio|floatformat:2|intcomma }}</div>
+                <div class="kpi-label text-secondary">Ticket Médio</div>
+            </div>
         </div>
       </div>
     </div>
-    <div class="col-lg-3 col-md-6">
+    <div class="col-lg-3 col-md-6 animate-entry kpi-card frequencia" style="animation-delay: 350ms;">
       <div class="card h-100 shadow-sm">
-        <div class="card-body text-center">
-          <h3 class="card-title h3 fw-bold">{{ frequencia_texto }}</h3>
-          <p class="card-text text-secondary">Frequência Média</p>
+        <div class="card-body">
+            <div class="kpi-icon-wrapper">
+                 <i class="bi bi-arrow-repeat"></i>
+            </div>
+             <div>
+                <div class="kpi-value">{{ frequencia_texto }}</div>
+                <div class="kpi-label text-secondary">Frequência Média</div>
+            </div>
         </div>
       </div>
     </div>
   </div>
 
   <div class="row g-4">
-    <div class="col-lg-4">
-      <div class="card shadow-sm">
-        <div class="card-header fw-bold">
-          <i class="bi bi-star-fill text-warning"></i> Produtos Favoritos
+    <div class="col-lg-4 animate-entry produtos-card">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-bold bg-transparent pt-3 border-0"> {# Header mais limpo #}
+          <i class="bi bi-star-fill text-warning me-2"></i> Produtos Favoritos
         </div>
-        <ul class="list-group list-group-flush">
-          {% for item in produtos_favoritos %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <small>{{ item.nome_completo }}</small>
-              <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ item.qtd_comprada }} un.</span>
-            </li>
-          {% empty %}
-            <li class="list-group-item text-secondary text-center">Sem dados de produtos.</li>
-          {% endfor %}
-        </ul>
+        <div class="card-body pt-0"> {# Remove padding superior do body #}
+            <ul class="list-group list-group-flush produtos-favoritos-list">
+              {% for item in produtos_favoritos %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2"> {# Menos padding, sem padding horizontal #}
+                  <small>{{ item.nome_completo }}</small>
+                  <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ item.qtd_comprada }} un.</span>
+                </li>
+              {% empty %}
+                <li class="list-group-item text-secondary text-center py-4 px-0">Sem dados de produtos.</li>
+              {% endfor %}
+            </ul>
+        </div>
       </div>
     </div>
-    <div class="col-lg-8">
+    <div class="col-lg-8 animate-entry historico-card">
       <div class="card shadow-sm">
-        <div class="card-header fw-bold">
-          <i class="bi bi-receipt"></i> Histórico de Compras ({{ num_compras }} transações)
+        <div class="card-header fw-bold bg-transparent pt-3 border-0"> {# Header mais limpo #}
+          <i class="bi bi-receipt me-2"></i> Histórico de Compras ({{ num_compras }} transações)
         </div>
-        <div class="accordion accordion-flush" id="historicoComprasAccordion">
+        <div class="accordion accordion-flush historico-accordion" id="historicoComprasAccordion">
           {% for compra_grupo in compras_agrupadas %}
             <div class="accordion-item">
-              <h2 class="accordion-header" id="heading-{{ compra_grupo.id }}">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ compra_grupo.id }}" aria-expanded="false" aria-controls="collapse-{{ compra_grupo.id }}">
-                  <div class="d-flex w-100 justify-content-between pe-3">
-                    <span><i class="bi bi-calendar3 me-2"></i> {{ compra_grupo.data|date:'d/m/Y H:i' }}</span>
-                    <span>{{ compra_grupo.total_itens }} itens</span>
-                    <span class="fw-bold text-success">R$ {{ compra_grupo.total_valor|floatformat:2 }}</span>
-                  </div>
-                </button>
-              </h2>
-              <div id="collapse-{{ compra_grupo.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ compra_grupo.id }}" data-bs-parent="#historicoComprasAccordion">
-                <div class="accordion-body p-0">
+              <div class="d-flex align-items-center"> {# Wrapper cabeçalho + botão fatura #}
+                <h2 class="accordion-header flex-grow-1" id="heading-{{ compra_grupo.movimentacao_ids_str|slugify }}">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ compra_grupo.movimentacao_ids_str|slugify }}" aria-expanded="false" aria-controls="collapse-{{ compra_grupo.movimentacao_ids_str|slugify }}">
+                    <div class="d-flex w-100 justify-content-between pe-3 align-items-center"> {# Adicionado align-items-center #}
+                      <span><i class="bi bi-calendar3 me-2"></i> {{ compra_grupo.data|date:'d/m/Y H:i' }}</span>
+                      <span class="text-secondary small">{{ compra_grupo.total_itens }} itens</span>
+                      <span class="fw-bold text-success fs-6">R$ {{ compra_grupo.total_valor|floatformat:2 }}</span> {# Tamanho de fonte ajustado #}
+                    </div>
+                  </button>
+                </h2>
+                <a href="{% url 'preparar_fatura' cliente.id compra_grupo.movimentacao_ids_str %}"
+                   class="btn btn-sm btn-outline-primary ms-2 me-3 flex-shrink-0"
+                   title="Gerar Fatura para esta compra">
+                    <i class="bi bi-file-earmark-text"></i>
+                </a>
+              </div>
+
+              <div id="collapse-{{ compra_grupo.movimentacao_ids_str|slugify }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ compra_grupo.movimentacao_ids_str|slugify }}" data-bs-parent="#historicoComprasAccordion">
+                <div class="accordion-body">
                   <ul class="list-group list-group-flush mb-0">
                     {% for item in compra_grupo.itens %}
-                      <li class="list-group-item d-flex justify-content-between align-items-center">
+                      <li class="list-group-item">
                         <small>{{ item.variacao }}</small>
                         <small class="text-secondary">{{ item.quantidade }} x R$ {{ item.variacao.preco_de_venda|floatformat:2 }}</small>
-                        <small class="fw-bold">R${% widthratio item.quantidade 1 item.variacao.preco_de_venda %}</small>
+                        <small class="fw-bold">R$ {% widthratio item.quantidade 1 item.variacao.preco_de_venda %}</small>
                       </li>
                     {% endfor %}
-                    <li class="list-group-item text-end bg-light">
-                      <a href="{% url 'preparar_fatura' cliente.id compra_grupo.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-text"></i> Gerar Fatura</a>
-                    </li>
                   </ul>
                 </div>
               </div>
@@ -107,5 +276,5 @@
         </div>
       </div>
     </div>
-  </div> {# Fim da Row #}
+  </div>
 {% endblock %}

@@ -54,7 +54,9 @@ urlpatterns = [
     path('relatorios/', relatorios_view, name='relatorios'),
     path('relatorio/vendas/<str:periodo>/', relatorio_vendas_view, name='relatorio_vendas'),
     path('relatorios/pdf/', exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
-    path('fatura/preparar/<int:cliente_id>/<str:grupo_id>/', preparar_fatura_view, name='preparar_fatura'),
+    
+    # prepara faturas
+    path('fatura/preparar/<int:cliente_id>/<str:movimentacao_ids>/', preparar_fatura_view, name='preparar_fatura'),
     
     # URLs de Autenticação
     path('login/', CustomLoginView.as_view(), name='login'),

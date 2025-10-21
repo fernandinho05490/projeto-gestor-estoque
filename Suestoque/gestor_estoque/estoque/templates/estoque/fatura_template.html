@@ -2,97 +2,172 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Fatura {{ cliente.nome }}</title>
+    <title>Fatura {{ cliente.nome }} - {{ data_emissao|date:"d/m/Y" }}</title> {# Data da compra no título #}
     <style>
-        body { font-family: sans-serif; font-size: 12px; margin: 0; padding: 20px; }
-        .header, .footer { text-align: center; margin-bottom: 20px; }
-        .cliente-info, .empresa-info { margin-bottom: 20px; padding: 10px; border: 1px solid #eee; }
-        .cliente-info { float: left; width: 45%; }
-        .empresa-info { float: right; width: 45%; text-align: right;}
-        .clear { clear: both; }
-        h1, h2, h3 { margin: 5px 0; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        @page {
+            size: A4;
+            margin: 1cm 1.5cm; /* Margens um pouco menores */
+            @bottom-center {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 8pt;
+                color: #6c757d;
+            }
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 9pt; /* Fonte base um pouco menor */
+            color: #333;
+            line-height: 1.3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            padding: 6px 8px; /* Padding menor na tabela */
+            text-align: left;
+            vertical-align: top;
+            border-bottom: 1px solid #e9ecef; /* Borda mais sutil */
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            border-bottom-width: 1px; /* Borda do header mais sutil */
+            border-color: #dee2e6;
+            font-size: 8.5pt;
+            text-transform: uppercase;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
         .text-right { text-align: right; }
-        .total-section { float: right; width: 40%; }
-        .total-section td { border: none; }
+        .text-center { text-align: center; }
+        .fw-bold { font-weight: bold; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-3 { margin-bottom: 1rem; }
+        .mt-3 { margin-top: 1rem; }
+        .mt-4 { margin-top: 1.5rem; }
+        .mb-4 { margin-bottom: 1.5rem; }
+        .fs-small { font-size: 8.5pt; } /* Tamanho menor para detalhes */
+        .text-muted { color: #6c757d; }
+
+        /* --- Layout com Flexbox --- */
+        .d-flex { display: flex; }
+        .justify-content-between { justify-content: space-between; }
+        .align-items-start { align-items: flex-start; }
+
+        /* Cabeçalho */
+        .invoice-header { border-bottom: 2px solid #dee2e6; padding-bottom: 15px; margin-bottom: 25px; }
+        .logo-container { flex-basis: 50%; }
+        .logo-placeholder { background-color: #e9ecef; color: #adb5bd; width: 120px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 8pt; text-align: center; border-radius: 4px; margin-bottom: 5px;}
+        .invoice-details { flex-basis: 45%; text-align: right; }
+        .invoice-details h1 { font-size: 20pt; margin: 0 0 5px 0; color: #343a40; text-transform: uppercase; letter-spacing: 1px;}
+        .invoice-details p { margin: 2px 0; font-size: 9pt; }
+
+        /* Informações Empresa/Cliente */
+        .address-section { margin-bottom: 25px; }
+        .company-info, .client-info { flex-basis: 48%; }
+        .address-section h3 { font-size: 10pt; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; margin-bottom: 8px; color: #495057; text-transform: uppercase; }
+        .address-section p { margin: 2px 0; }
+
+        /* Tabela de Totais */
+        .totals-section { width: 40%; float: right; margin-top: 15px; }
+        .totals-table { width: 100%; }
+        .totals-table td { border: none; padding: 4px 8px; font-size: 9.5pt; }
+        .totals-table tr td:first-child { color: #6c757d; } /* Labels dos totais mais sutis */
+        .totals-table tr.grand-total td { border-top: 2px solid #333; font-size: 11pt; padding-top: 8px; color: #333;}
+
+        /* Rodapé */
+        .footer { clear: both; margin-top: 40px; padding-top: 15px; border-top: 1px solid #dee2e6; text-align: center; font-size: 8pt; color: #6c757d; }
+        .footer p { margin: 3px 0; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Fatura</h1>
-        <p>Data de Emissão: {{ data_emissao|date:"d/m/Y H:i" }}</p>
+    <div class="invoice-header d-flex justify-content-between align-items-start">
+        <div class="logo-container">
+            <div class="logo-placeholder">Seu Logo Aqui</div>
+            <h2 style="margin:0; font-size: 11pt; color:#495057;">{{ empresa_nome|default:"Sua Empresa" }}</h2>
+             <p class="fs-small text-muted">{{ empresa_endereco|default:"Endereço da Empresa" }}</p>
+             <p class="fs-small text-muted">{{ empresa_contato|default:"Contato da Empresa" }}</p>
+        </div>
+        <div class="invoice-details">
+            <h1>Fatura</h1>
+            {# <p><span class="fw-bold">Número:</span> #{{ movimentacao_ids|default:"N/A"|slice:":10" }}</p> #} {# Simplificado número #}
+            <p><span class="fw-bold">Data da Compra:</span> {{ data_emissao|date:"d/m/Y H:i" }}</p> {# Label corrigido #}
+        </div>
     </div>
 
-    <div class="empresa-info">
-        <h3>{{ empresa_nome }}</h3>
-        <p>{{ empresa_endereco }}</p>
-        <p>{{ empresa_contato }}</p>
+    <div class="address-section d-flex justify-content-between align-items-start">
+        <div class="company-info">
+            <h3>Cobrança De:</h3>
+            <p class="fw-bold">{{ empresa_nome|default:"Sua Empresa" }}</p>
+            <p class="fs-small">{{ empresa_endereco|default:"Endereço da Empresa" }}</p>
+            <p class="fs-small">{{ empresa_contato|default:"Contato da Empresa" }}</p>
+        </div>
+        <div class="client-info">
+            <h3>Cobrança Para:</h3>
+            <p class="fw-bold">{{ cliente.nome }}</p>
+            {% if cliente.email %}<p class="fs-small">{{ cliente.email }}</p>{% endif %}
+            {% if cliente.telefone %}<p class="fs-small">{{ cliente.telefone }}</p>{% endif %}
+        </div>
     </div>
-
-    <div class="cliente-info">
-        <h3>Cliente:</h3>
-        <p><strong>{{ cliente.nome }}</strong></p>
-        {% if cliente.email %}<p>{{ cliente.email }}</p>{% endif %}
-        {% if cliente.telefone %}<p>{{ cliente.telefone }}</p>{% endif %}
-    </div>
-
-    <div class="clear"></div>
 
     <h3>Itens</h3>
     <table>
         <thead>
             <tr>
                 <th>Descrição</th>
-                <th class="text-right">Qtd.</th>
-                <th class="text-right">Preço Unit.</th>
-                <th class="text-right">Subtotal</th>
+                <th class="text-center">Qtd.</th>
+                <th class="text-right">Preço Unit. (R$)</th>
+                <th class="text-right">Total Item (R$)</th>
             </tr>
         </thead>
         <tbody>
             {% for item in itens %}
             <tr>
                 <td>{{ item.variacao }}</td>
-                <td class="text-right">{{ item.quantidade }}</td>
-                <td class="text-right">R$ {{ item.variacao.preco_de_venda|floatformat:2 }}</td>
-                <td class="text-right">R$ {% widthratio item.quantidade 1 item.variacao.preco_de_venda %}</td>
+                <td class="text-center">{{ item.quantidade }}</td>
+                <td class="text-right">{{ item.variacao.preco_de_venda|floatformat:"2g" }}</td>
+                <td class="text-right">{% widthratio item.quantidade 1 item.variacao.preco_de_venda as total_item %}{{ total_item|floatformat:"2g" }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <div class="total-section">
-        <table>
+    <div class="totals-section">
+        <table class="totals-table">
             <tbody>
                 <tr>
-                    <td>Subtotal Itens:</td>
-                    <td class="text-right">R$ {{ subtotal|floatformat:2 }}</td>
+                    <td class="text-right">Subtotal Itens:</td>
+                    <td class="text-right">R$ {{ subtotal|floatformat:"2g" }}</td>
                 </tr>
                 {% if frete > 0 %}
                 <tr>
-                    <td>Frete:</td>
-                    <td class="text-right">R$ {{ frete|floatformat:2 }}</td>
+                    <td class="text-right">Frete:</td>
+                    <td class="text-right">R$ {{ frete|floatformat:"2g" }}</td>
                 </tr>
                 {% endif %}
                  {% if desconto > 0 %}
                 <tr>
-                    <td>Desconto:</td>
-                    <td class="text-right">- R$ {{ desconto|floatformat:2 }}</td>
+                    <td class="text-right">Desconto:</td>
+                    <td class="text-right" style="color: red;">- R$ {{ desconto|floatformat:"2g" }}</td> {# Desconto em vermelho #}
                 </tr>
                 {% endif %}
-                <tr>
-                    <td><strong>Total Geral:</strong></td>
-                    <td class="text-right"><strong>R$ {{ total|floatformat:2 }}</strong></td>
+                <tr class="grand-total">
+                    <td class="text-right fw-bold">Total Geral:</td>
+                    <td class="text-right fw-bold">R$ {{ total|floatformat:"2g" }}</td>
                 </tr>
             </tbody>
         </table>
     </div>
 
-    <div class="clear"></div>
-
     <div class="footer">
-        <p>Obrigado pela sua compra!</p>
+        <p><strong>Termos de Pagamento:</strong> [Seus Termos Aqui - ex: Vencimento em DD/MM/YYYY]</p>
+        <p><strong>Dados Bancários (Opcional):</strong> [Sua Chave PIX / Conta Bancária]</p>
+        <p class="mt-3">Obrigado pela sua preferência!</p>
     </div>
 
 </body>
