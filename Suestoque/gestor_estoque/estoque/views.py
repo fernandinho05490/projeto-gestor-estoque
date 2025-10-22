@@ -946,6 +946,77 @@ def preparar_fatura_view(request, cliente_id, movimentacao_ids):
     }
     return render(request, 'estoque/preparar_fatura.html', context)
 
+# --- Seção da API ---
+
+@login_required
+def busca_global_api_view(request):
+    """
+    Endpoint da API para a busca global com autocompletar.
+    Busca em Variações, Clientes e Páginas principais.
+    Retorna resultados em JSON.
+    """
+    query = request.GET.get('q', '').strip()
+    results = []
+    limit = 5 # Limite de resultados por categoria
+
+    if len(query) >= 2: # Só busca se tiver pelo menos 2 caracteres
+
+        # 1. Buscar Variações (Produtos)
+        variacoes = Variacao.objects.filter(
+            Q(produto__nome__icontains=query) |
+            Q(valores_atributos__valor__icontains=query) |
+            Q(codigo_barras__iexact=query) # Busca exata por código de barras
+        ).distinct().select_related('produto')[:limit]
+
+        for v in variacoes:
+            results.append({
+                'nome': str(v),
+                'tipo': 'Produto',
+                'url': '#', # Placeholder - Idealmente linkaria para detalhes do produto se existisse
+                'icone': 'bi-box-seam'
+            })
+
+        # 2. Buscar Clientes
+        clientes = Cliente.objects.filter(
+             Q(nome__icontains=query) |
+             Q(telefone__icontains=query) |
+             Q(email__icontains=query)
+        )[:limit]
+
+        for c in clientes:
+            results.append({
+                'nome': c.nome,
+                'tipo': 'Cliente',
+                'url': reverse('cliente_detail', args=[c.id]), # Link para detalhes do cliente
+                'icone': 'bi-person-circle'
+            })
+
+        # 3. Buscar Páginas Principais (Exemplo Fixo)
+        paginas = {
+            'Início': reverse('dashboard_estoque'),
+            'Frente de Caixa': reverse('pdv'),
+            'Análises': reverse('analises'),
+            'Clientes': reverse('cliente_list'),
+            'Estoque': reverse('gerenciar_estoque'),
+            'Compras': reverse('compras'),
+            'Ordens de Compra': reverse('ordem_compra_list'),
+            'Relatórios': reverse('relatorios'),
+        }
+
+        for nome_pagina, url_pagina in paginas.items():
+            if query.lower() in nome_pagina.lower():
+                results.append({
+                    'nome': nome_pagina,
+                    'tipo': 'Página',
+                    'url': url_pagina,
+                    'icone': 'bi-file-earmark-text' # Ícone genérico para página
+                })
+
+        # Limitar o número total de resultados (opcional)
+        results = results[:10] # Mostra no máximo 10 resultados totais
+
+    return JsonResponse(results, safe=False)
+
 # --- Seção de Busca Global ---
 
 @login_required

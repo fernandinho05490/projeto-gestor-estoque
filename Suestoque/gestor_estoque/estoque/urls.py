@@ -23,6 +23,8 @@ from .views import (
     cliente_detail_view,
     analises_view,
     preparar_fatura_view,
+    # ajustar_venda_view,
+    busca_global_api_view,
 )
 
 urlpatterns = [
@@ -61,5 +63,8 @@ urlpatterns = [
     # URLs de Autenticação
     path('login/', CustomLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    
+    # nova rota para api de busca global
+    path('api/busca-global/', busca_global_api_view, name='busca_global_api'),
 ]
 
