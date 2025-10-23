@@ -1,208 +1,779 @@
 {% extends 'estoque/base.html' %}
 
-{% block title %}Página Inicial{% endblock %}
+{% block title %}Dashboard - Gestor de Estoque{% endblock %}
 
 {% block head_extra %}
-{# Adiciona CSS customizado para o Assistente #}
 <style>
-    .assistente-container .list-group-item {
-        border: none; /* Remove bordas padrão da lista */
-        background-color: transparent;
-        padding: 0.75rem 0;
-        opacity: 0; /* Começa invisível para animação */
-        animation: fadeInAssistente 0.5s ease-out forwards;
+    /* Variáveis CSS consistentes */
+    :root {
+        --glass-bg: rgba(255, 255, 255, 0.05);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        --transition-speed: 0.3s;
+        --card-radius: 16px;
+    }
+    
+    [data-bs-theme="light"] {
+        --glass-bg: rgba(255, 255, 255, 0.7);
+        --glass-border: rgba(0, 0, 0, 0.1);
+        --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
     }
 
-    /* Animação de entrada */
-    @keyframes fadeInAssistente {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+    /* Layout principal */
+    .dashboard-container {
+        animation: fadeInUp 0.8s ease-out;
+        max-width: 1200px;
+        margin: 0 auto;
     }
 
-    /* Atraso para cada item aparecer em sequência (opcional, mas legal) */
-    {% for sugestao in sugestoes_assistente %}
-    .assistente-container .list-group-item:nth-child({{ forloop.counter }}) {
-        animation-delay: {{ forloop.counter0|add:"1" }}00ms; /* 100ms, 200ms, 300ms... */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
-    {% endfor %}
 
-    .assistente-mensagem {
-        display: flex;
-        align-items: flex-start; /* Alinha avatar no topo */
+    /* Cards modernos com glassmorphism */
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--card-radius);
+        box-shadow: var(--glass-shadow);
+        transition: all var(--transition-speed) ease;
+        overflow: hidden;
     }
 
-    .assistente-avatar {
-        flex-shrink: 0;
-        width: 40px;
-        height: 40px;
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Header do dashboard */
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--bs-primary) 0%, rgba(var(--bs-primary-rgb), 0.8) 100%);
+        color: white;
+        border-radius: var(--card-radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255, 255, 255, 0.1);
         border-radius: 50%;
-        background-color: var(--bs-primary); /* Cor do avatar */
-        color: var(--bs-light);
+    }
+
+    .dashboard-header::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -10%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50%;
+    }
+
+    /* Meta de faturamento - Design premium */
+    .meta-card {
+        position: relative;
+        background: linear-gradient(155deg, #0d7df4ff 0%, #3d26ecff 100%);
+        color: white;
+        border-radius: var(--card-radius);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .meta-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    .meta-content {
+        position: relative;
+        z-index: 2;
+    }
+
+    .progress-container {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        height: 24px;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #24f3d4ff 0%, #00f2fe 100%);
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .progress-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+
+    /* Cards de Desempenho - Estilos Premium */
+    .performance-card {
+        padding: 2rem 1.5rem;
+        text-align: center;
+        height: 100%;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .performance-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(var(--bs-primary-rgb), 0.05), transparent);
+        transition: left 0.6s ease;
+    }
+
+    .performance-card:hover::before {
+        left: 100%;
+    }
+
+    .performance-card:hover {
+        transform: translateY(-10px) scale(1.02);
+        border-color: rgba(var(--bs-primary-rgb), 0.3);
+    }
+
+    .performance-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(var(--bs-primary-rgb), 0.1) 0%, rgba(var(--bs-primary-rgb), 0.05) 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-right: 0.75rem;
-    }
-    [data-bs-theme="light"] .assistente-avatar {
-         background-color: var(--bs-primary);
-         color: var(--bs-light);
-    }
-     [data-bs-theme="dark"] .assistente-avatar {
-         background-color: var(--bs-primary-bg-subtle); /* Ajuste de cor para tema escuro */
-         color: var(--bs-primary);
+        margin: 0 auto 1rem;
+        font-size: 1.75rem;
+        color: var(--bs-primary);
+        transition: all 0.3s ease;
+        position: relative;
     }
 
-
-    .assistente-balao {
-        background-color: var(--bs-tertiary-bg); /* Cor de fundo do balão */
-        border-radius: 15px;
-        padding: 0.75rem 1rem;
-        flex-grow: 1;
-        position: relative; /* Para a "setinha" */
+    .performance-card:hover .performance-icon {
+        transform: scale(1.1);
+        background: linear-gradient(135deg, var(--bs-primary) 0%, rgba(var(--bs-primary-rgb), 0.8) 100%);
+        color: white;
+        box-shadow: 0 8px 25px rgba(var(--bs-primary-rgb), 0.3);
     }
-    
-    /* "Setinha" do balão apontando para o avatar */
-    .assistente-balao::before {
+
+    .performance-period {
+        color: var(--bs-secondary-color);
+        letter-spacing: 0.5px;
+        font-size: 0.8rem;
+    }
+
+    .performance-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 0.5rem 0;
+        background: linear-gradient(135deg, var(--bs-primary) 0%, #667eea 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        line-height: 1;
+    }
+
+    .performance-label {
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .performance-stats {
+        background: rgba(var(--bs-body-color-rgb), 0.03);
+        border-radius: 12px;
+        padding: 0.75rem;
+        margin: 1rem 0;
+    }
+
+    .stat-item {
+        border-bottom: 1px solid rgba(var(--bs-border-color-rgb), 0.3);
+    }
+
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+
+    .stat-item .small {
+        font-weight: 500;
+        color: var(--bs-secondary-color);
+    }
+
+    .performance-footer {
+        border-top-color: rgba(var(--bs-border-color-rgb), 0.3) !important;
+    }
+
+    /* Efeito de brilho sutil nos cards */
+    .performance-card::after {
         content: '';
         position: absolute;
-        left: -8px; /* Posição da seta */
-        top: 10px;
-        width: 0; 
-        height: 0; 
-        border-top: 8px solid transparent;
-        border-bottom: 8px solid transparent;
-        border-right: 8px solid var(--bs-tertiary-bg); /* Mesma cor do balão */
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, 
+            transparent, 
+            transparent, 
+            rgba(var(--bs-primary-rgb), 0.1), 
+            transparent, 
+            transparent);
+        border-radius: inherit;
+        z-index: -1;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
+
+    .performance-card:hover::after {
+        opacity: 1;
+    }
+
+    /* Animações de entrada para os cards */
+    @keyframes cardSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .performance-card {
+        animation: cardSlideIn 0.6s ease-out forwards;
+    }
+
+    /* Assistente do Gestor - Design Conversacional */
+    .assistente-container {
+        position: relative;
+        margin-bottom: 2rem;
+    }
+
+    .assistente-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--bs-primary) 0%, #667eea 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        box-shadow: 0 4px 15px rgba(var(--bs-primary-rgb), 0.3);
+    }
+
+    .assistente-mensagem {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        animation: messageSlideIn 0.5s ease-out forwards;
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    @keyframes messageSlideIn {
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Atrasos para animação em cascata */
+    {% for sugestao in sugestoes_assistente %}
+    .assistente-mensagem:nth-child({{ forloop.counter }}) {
+        animation-delay: {{ forloop.counter0|add:"1" }}00ms;
+    }
+    {% endfor %}
 
     .assistente-texto {
-        margin-bottom: 0.5rem;
-    }
-    
-    .assistente-acao a {
-        font-weight: 500;
-        text-decoration: none;
-    }
-    .assistente-acao a:hover {
-        text-decoration: underline;
+        color: var(--bs-body-color);
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
     }
 
+    .assistente-acao a {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(var(--bs-primary-rgb), 0.1);
+        color: var(--bs-primary);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all var(--transition-speed) ease;
+        border: 1px solid transparent;
+    }
+
+    .assistente-acao a:hover {
+        background: var(--bs-primary);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(var(--bs-primary-rgb), 0.3);
+    }
+
+    /* Ações rápidas - Design melhorado */
+    .acoes-rapidas-container {
+        margin-bottom: 2rem;
+    }
+
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .quick-action-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--card-radius);
+        padding: 2rem;
+        transition: all var(--transition-speed) ease;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .quick-action-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(var(--bs-primary-rgb), 0.1), transparent);
+        transition: left 0.5s ease;
+    }
+
+    .quick-action-card:hover::before {
+        left: 100%;
+    }
+
+    .quick-action-card:hover {
+        transform: translateY(-8px);
+        border-color: var(--bs-primary);
+    }
+
+    .action-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: rgba(var(--bs-primary-rgb), 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+        font-size: 1.75rem;
+        color: var(--bs-primary);
+        transition: all var(--transition-speed) ease;
+    }
+
+    .quick-action-card:hover .action-icon {
+        background: var(--bs-primary);
+        color: white;
+        transform: scale(1.1);
+    }
+
+    .action-title {
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: var(--bs-body-color);
+        font-size: 1.25rem;
+    }
+
+    .action-description {
+        color: var(--bs-secondary-color);
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+        line-height: 1.5;
+        flex-grow: 1;
+    }
+
+    .action-cta {
+        color: var(--bs-primary);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(var(--bs-border-color-rgb), 0.3);
+    }
+
+    /* Alertas personalizados */
+    .custom-alert {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--card-radius);
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+        transition: all var(--transition-speed) ease;
+    }
+
+    .custom-alert:hover {
+        transform: translateX(5px);
+        border-left: 4px solid var(--bs-primary);
+    }
+
+    .alert-icon {
+        font-size: 1.5rem;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+
+    /* Títulos de seção */
+    .section-title {
+        color: var(--bs-body-color);
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        position: relative;
+        padding-bottom: 0.75rem;
+        font-size: 1.5rem;
+    }
+
+    .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 60px;
+        height: 4px;
+        background: linear-gradient(90deg, var(--bs-primary) 0%, transparent 100%);
+        border-radius: 2px;
+    }
+
+    /* Layout vertical harmonioso */
+    .dashboard-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
+    }
+
+    .section-divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--bs-border-color), transparent);
+        margin: 1rem 0;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .assistente-avatar {
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+        }
+        
+        .performance-value {
+            font-size: 2rem;
+        }
+        
+        .performance-card {
+            padding: 1.5rem 1rem;
+        }
+        
+        .performance-icon {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+        
+        .quick-action-card {
+            padding: 1.5rem;
+        }
+        
+        .quick-actions-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-icon {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+    }
+
+    @media (min-width: 1200px) {
+        .quick-actions-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
 </style>
 {% endblock %}
 
-
 {% block content %}
-{% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<div class="dashboard-container">
+    {% if messages %}
+        {% for message in messages %}
+        <div class="custom-alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} mb-4">
+            <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill text-success{% elif message.tags == 'error' %}exclamation-circle-fill text-danger{% else %}info-circle-fill text-info{% endif %} alert-icon"></i>
+            <div class="flex-grow-1">
+                {{ message }}
+            </div>
+            <button type="button" class="btn-close ms-2" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Header do Dashboard -->
+    <div class="dashboard-header glass-card">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">Bem-vindo de volta!</h1>
+                <p class="mb-0 opacity-75">Aqui está um resumo do seu desempenho e atividades recentes</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="text-white-50 small">Hoje é</div>
+                <div class="h5 mb-0">{{ current_date|date:"d/m/Y" }}</div>
+            </div>
+        </div>
     </div>
-    {% endfor %}
-{% endif %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">Página Inicial</h1>
-</div>
-
-<div class="card shadow-sm mb-5">
-    <div class="card-body">
-        {% if meta_venda %}
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="card-title mb-0">Sua Meta de Faturamento para {{ meta_venda.mes }}/{{ meta_venda.ano }}</h5>
-                <a href="{% url 'admin:estoque_metavenda_change' meta_venda.id %}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-gear-fill"></i> Ajustar Meta
-                </a>
-            </div>
-            <p class="h3 fw-bold text-success mb-2">
-                R$ {{ faturamento_mes_atual|floatformat:2 }}
-                <span class="fs-5 text-secondary fw-normal"> de R$ {{ meta_venda.valor_meta|floatformat:2 }}</span>
-            </p>
-            <div class="progress" style="height: 20px;">
-                <div class="progress-bar bg-success" role="progressbar" style="width: {{ progresso_percentual }}%;" aria-valuenow="{{ progresso.percentual }}" aria-valuemin="0" aria-valuemax="100">
-                    {{ progresso_percentual }}%
-                </div>
-            </div>
-            {% if mensagem_motivacional %}
-            <div class="text-center text-secondary mt-2">
-                <em>{{ mensagem_motivacional }}</em>
-            </div>
-            {% endif %}
-        {% else %}
-            <div class="text-center py-3">
-                <p class="lead">Você ainda não definiu uma meta de faturamento para este mês.</p>
-                <a href="{% url 'admin:estoque_metavenda_add' %}" target="_blank" class="btn btn-primary">
-                    <i class="bi bi-bullseye"></i> Criar sua Meta Agora
-                </a>
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<div class="assistente-container mb-5">
-    <h2 class="h5 section-title">Assistente do Gestor</h2>
-    {% if sugestoes_assistente %}
-        {% for sugestao in sugestoes_assistente %}
-            {# Define a cor do alerta com base no tipo da sugestão #}
-            {% with alert_color='info' %} {# Cor padrão #}
-                {% if sugestao.tipo == 'alerta_estoque' %}
-                    {% with alert_color='danger' %}{% endwith %}
-                {% elif sugestao.tipo == 'oportunidade' %}
-                    {% with alert_color='success' %}{% endwith %}
-                {% elif sugestao.tipo == 'estoque_parado' %}
-                     {% with alert_color='warning' %}{% endwith %}
-                {% endif %}
-            
-                <div class="alert alert-{{ alert_color }} d-flex align-items-center shadow-sm mb-3" role="alert">
-                    <i class="bi {{ sugestao.icone }} fs-4 me-3"></i>
-                    <div class="flex-grow-1">
-                        {% autoescape off %}{{ sugestao.texto }}{% endautoescape %}
-                        {% if sugestao.link_url and sugestao.link_texto %}
-                            <a href="{{ sugestao.link_url }}" {% if 'wa.me' in sugestao.link_url %}target="_blank"{% endif %} class="alert-link fw-semibold ms-2">
-                                {{ sugestao.link_texto }} <i class="bi bi-arrow-right-short"></i>
-                            </a>
+    <!-- Layout Vertical Harmonioso -->
+    <div class="dashboard-sections">
+        
+        <!-- Meta de Faturamento -->
+        <section class="meta-section">
+            <h2 class="section-title">Meta de Faturamento</h2>
+            <div class="meta-card glass-card">
+                <div class="meta-content p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="mb-1 opacity-75">{{ meta_venda.mes }}/{{ meta_venda.ano }}</p>
+                        </div>
+                        {% if meta_venda %}
+                        <a href="{% url 'admin:estoque_metavenda_change' meta_venda.id %}" target="_blank" class="btn btn-light btn-sm">
+                            <i class="bi bi-gear-fill me-1"></i> Ajustar Meta
+                        </a>
                         {% endif %}
                     </div>
+                    
+                    {% if meta_venda %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="h1 fw-bold mb-0">R$ {{ faturamento_mes_atual|floatformat:2 }}</span>
+                            <span class="h5 opacity-75">de R$ {{ meta_venda.valor_meta|floatformat:2 }}</span>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-fill" style="width: {{ progresso_percentual }}%;">
+                                <div class="progress-text position-absolute w-100 text-center text-white small fw-bold">
+                                    {{ progresso_percentual }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if mensagem_motivacional %}
+                    <div class="text-center mt-3">
+                        <em class="opacity-75 fs-5">{{ mensagem_motivacional }}</em>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <p class="fs-5 mb-3">Você ainda não definiu uma meta de faturamento para este mês</p>
+                        <a href="{% url 'admin:estoque_metavenda_add' %}" target="_blank" class="btn btn-light btn-lg">
+                            <i class="bi bi-bullseye me-2"></i> Criar Meta Agora
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
-            {% endwith %} {# Fim do with alert_color #}
-        {% endfor %}
-    {% else %}
-        <div class="alert alert-secondary d-flex align-items-center shadow-sm border-0" role="alert" style="background-color: var(--bs-tertiary-bg);">
-             <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
-             <div class="text-secondary">
-                 Tudo certo por aqui! Nenhuma ação urgente necessária no momento.
-             </div>
-        </div>
-    {% endif %}
-</div>
-<h2 class="h5 section-title">Desempenho por Período</h2>
-<div class="row g-4 mb-5">
-    {% include 'estoque/partials/cards_desempenho.html' %}
-</div>
+            </div>
+        </section>
 
-</div> <div class="acoes-rapidas-container mb-5">
-    <h2 class="h5 section-title">Ações Rápidas</h2>
-    <div class="row g-3">
-        <div class="col-md-4">
-            <a href="{% url 'pdv' %}" class="btn btn-lg btn-primary w-100 py-3 shadow-sm">
-                <i class="bi bi-pc-display-horizontal me-2"></i> Ir para Frente de Caixa
-            </a>
-        </div>
-        <div class="col-md-4">
-             <a href="{% url 'gerenciar_estoque' %}" class="btn btn-lg btn-secondary w-100 py-3 shadow-sm">
-                <i class="bi bi-boxes me-2"></i> Gerenciar Estoque
-            </a>
-        </div>
-        <div class="col-md-4">
-             <a href="{% url 'cliente_list' %}" class="btn btn-lg btn-secondary w-100 py-3 shadow-sm">
-                <i class="bi bi-people-fill me-2"></i> Ver Clientes
-            </a>
-        </div>
-        </div>
-</div>
+        <div class="section-divider"></div>
 
+        <!-- Cards de Desempenho -->
+        <section class="performance-section">
+            <h2 class="section-title">Desempenho por Período</h2>
+            <div class="row g-4">
+                {% include 'estoque/partials/cards_desempenho.html' %}
+            </div>
+        </section>
+
+        <div class="section-divider"></div>
+
+        <!-- Ações Rápidas - Posição Melhorada -->
+        <section class="quick-actions-section">
+            <h2 class="section-title">Ações Rápidas</h2>
+            <div class="quick-actions-grid">
+                <a href="{% url 'pdv' %}" class="quick-action-card text-decoration-none">
+                    <div class="action-icon">
+                        <i class="bi bi-pc-display-horizontal"></i>
+                    </div>
+                    <div class="action-title">Frente de Caixa</div>
+                    <div class="action-description">
+                        Inicie novas vendas, atenda clientes e processe pagamentos de forma rápida e eficiente.
+                    </div>
+                    <div class="action-cta">
+                        <span>Acessar PDV</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="{% url 'gerenciar_estoque' %}" class="quick-action-card text-decoration-none">
+                    <div class="action-icon">
+                        <i class="bi bi-boxes"></i>
+                    </div>
+                    <div class="action-title">Gerenciar Estoque</div>
+                    <div class="action-description">
+                        Controle seus produtos, verifique quantidades e gerencie reposições de forma centralizada.
+                    </div>
+                    <div class="action-cta">
+                        <span>Ver Estoque</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="{% url 'cliente_list' %}" class="quick-action-card text-decoration-none">
+                    <div class="action-icon">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <div class="action-title">Clientes</div>
+                    <div class="action-description">
+                        Consulte a base de clientes, histórico de compras e gerencie informações de contato.
+                    </div>
+                    <div class="action-cta">
+                        <span>Ver Clientes</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <div class="section-divider"></div>
+
+        <!-- Assistente do Gestor -->
+        <section class="assistant-section">
+            <h2 class="section-title">Assistente do Gestor</h2>
+            <div class="assistente-container">
+                <div class="glass-card p-4">
+                    {% if sugestoes_assistente %}
+                        {% for sugestao in sugestoes_assistente %}
+                        <div class="assistente-mensagem d-flex">
+                            <div class="assistente-avatar">
+                                <i class="bi {{ sugestao.icone }}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="assistente-texto">
+                                    {% autoescape off %}{{ sugestao.texto }}{% endautoescape %}
+                                </div>
+                                {% if sugestao.link_url and sugestao.link_texto %}
+                                <div class="assistente-acao">
+                                    <a href="{{ sugestao.link_url }}" {% if 'wa.me' in sugestao.link_url %}target="_blank"{% endif %}>
+                                        {{ sugestao.link_texto }} <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="assistente-mensagem d-flex">
+                            <div class="assistente-avatar">
+                                <i class="bi bi-check-circle-fill"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="assistente-texto">
+                                    Tudo sob controle! Nenhuma ação urgente necessária no momento. Seu negócio está operando com eficiência.
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
 {% endblock %}
 
-
 {% block scripts_extra %}
-{# Scripts extras podem ser necessários se quisermos interações mais complexas no futuro #}
+<script>
+    // Animação adicional para os cards de desempenho
+    document.addEventListener('DOMContentLoaded', function() {
+        // Adiciona hover effects dinâmicos
+        const cards = document.querySelectorAll('.glass-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-8px)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Animação para os valores dos cards de desempenho
+        const performanceValues = document.querySelectorAll('.performance-value');
+        performanceValues.forEach(value => {
+            const originalText = value.textContent;
+            value.textContent = '0';
+            
+            setTimeout(() => {
+                let current = 0;
+                const target = parseFloat(originalText.replace(/[^\d.-]/g, ''));
+                const increment = target / 50;
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        value.textContent = originalText;
+                        clearInterval(timer);
+                    } else {
+                        value.textContent = Math.floor(current).toLocaleString('pt-BR');
+                    }
+                }, 30);
+            }, 500);
+        });
+    });
+</script>
 {% endblock %}

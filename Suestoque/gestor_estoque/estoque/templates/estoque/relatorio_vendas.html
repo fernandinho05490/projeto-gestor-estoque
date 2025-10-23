@@ -2,201 +2,680 @@
 
 {% block title %}Relatório de Vendas - {{ periodo_titulo }}{{ periodo_titulo_detalhe }}{% endblock %}
 
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">
-        Relatório de Vendas: <span class="text-primary">{{ periodo_titulo }}</span>
-        <span class="text-secondary fw-normal">{{ periodo_titulo_detalhe }}</span>
-    </h1>
-    <div>
-        {% if filtro_ativo %}
-        <a href="{% url 'relatorio_vendas' periodo %}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Voltar à visão geral
-        </a>
-        {% endif %}
-        <a href="{% url 'dashboard_estoque' %}" class="btn btn-dark">
-            <i class="bi bi-grid-fill"></i> Ir para o Dashboard
-        </a>
-    </div>
-</div>
+{% block head_extra %}
+<style>
+    /* Variáveis CSS consistentes */
+    :root {
+        --glass-bg: rgba(255, 255, 255, 0.05);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        --transition-speed: 0.3s;
+        --card-radius: 16px;
+    }
+    
+    [data-bs-theme="light"] {
+        --glass-bg: rgba(255, 255, 255, 0.7);
+        --glass-border: rgba(0, 0, 0, 0.1);
+        --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+    }
 
-<div class="row g-4 mb-4">
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body text-center">
-                <h3 class="card-title display-6 fw-bold">{{ totais_periodo.quantidade|default:0 }}</h3>
-                <p class="card-text text-secondary">Total de Unidades Vendidas</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body text-center">
-                <h3 class="card-title text-success display-6 fw-bold">R$ {{ totais_periodo.faturamento|floatformat:2 }}</h3>
-                <p class="card-text text-secondary">Faturamento no Período</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body text-center">
-                <h3 class="card-title text-info display-6 fw-bold">R$ {{ totais_periodo.lucro|floatformat:2 }}</h3>
-                <p class="card-text text-secondary">Lucro no Período</p>
-            </div>
-        </div>
-    </div>
-</div>
+    /* Layout principal */
+    .report-container {
+        animation: fadeInUp 0.8s ease-out;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
 
-<div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <i class="bi bi-star-fill text-warning me-2"></i>
-                <strong>Produto Mais Vendido do Período</strong>
-            </div>
-            <div class="card-body d-flex flex-column justify-content-center">
-                {% if produto_mais_vendido %}
-                    <h5 class="card-title mb-1">{{ produto_mais_vendido }}</h5>
-                    <p class="card-text text-success fw-bold display-6 mb-0">
-                        {{ produto_mais_vendido.total_vendido }}
-                        <span class="fs-6 text-secondary fw-normal">unidades</span>
-                    </p>
-                {% else %}
-                    <p class="text-secondary mb-0">Nenhuma venda registrada no período.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <i class="bi bi-gem text-primary me-2"></i>
-                <strong>Produto Mais Lucrativo do Período</strong>
-            </div>
-            <div class="card-body d-flex flex-column justify-content-center">
-                {% if produto_mais_lucrativo %}
-                     <h5 class="card-title mb-1">{{ produto_mais_lucrativo }}</h5>
-                     <p class="card-text text-primary fw-bold display-6 mb-0">
-                        R$ {{ produto_mais_lucrativo.lucro_gerado|floatformat:2 }}
-                        <span class="fs-6 text-secondary fw-normal">de lucro</span>
-                    </p>
-                {% else %}
-                    <p class="text-secondary mb-0">Nenhuma venda registrada no período.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 
-<div class="row g-4 mb-5">
-    {% if is_daily_view %}
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header fw-bold">
-                    <i class="bi bi-clock-history"></i> Vendas por Hora
-                </div>
-                <div class="card-body">
-                    <canvas id="graficoVendasPorHora"
-                            data-labels="{{ chart_hourly_labels }}"
-                            data-values="{{ chart_hourly_data }}"></canvas>
-                </div>
-            </div>
-        </div>
-    {% else %}
-        <div class="col-lg-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header fw-bold">
-                    <i class="bi bi-bar-chart-line-fill"></i> {{ chart_titulo }}
-                </div>
-                <div class="card-body">
-                    <canvas id="graficoDesempenhoPeriodo"
-                            data-labels="{{ chart_breakdown_labels }}"
-                            data-values="{{ chart_breakdown_data }}"
-                            data-periodo="{{ periodo }}"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header fw-bold">
-                    <i class="bi bi-trophy-fill"></i> {{ chart_lucro_title }}
-                </div>
-                <div class="card-body">
-                    <canvas id="graficoLucratividade"
-                            data-labels="{{ chart_lucro_labels }}"
-                            data-values="{{ chart_lucro_data }}"></canvas>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-</div>
+    /* Header do relatório */
+    .report-header {
+        background: linear-gradient(135deg, var(--bs-primary) 0%, rgba(var(--bs-primary-rgb), 0.8) 100%);
+        color: white;
+        border-radius: var(--card-radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
 
+    .report-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
 
-<div class="card shadow-sm">
-    <div class="card-header fw-bold">Vendas por Variação</div>
-    <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th scope="col">Variação do Produto</th>
-                    <th scope="col" class="text-center">Qtd. Vendida</th>
-                    <th scope="col" class="text-end">Faturamento</th>
-                    <th scope="col" class="text-end">Lucro</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for venda in vendas_detalhadas %}
-                <tr>
-                    <td>{{ venda.nome_completo }}</td>
-                    <td class="text-center">{{ venda.total_quantidade }}</td>
-                    <td class="text-end text-success">R$ {{ venda.total_faturamento|floatformat:2 }}</td>
-                    <td class="text-end text-info">R$ {{ venda.total_lucro|floatformat:2 }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-5 text-secondary">Nenhuma venda registrada neste período.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+    .report-header::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -10%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50%;
+    }
+
+    /* Cards modernos com glassmorphism */
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--card-radius);
+        box-shadow: var(--glass-shadow);
+        transition: all var(--transition-speed) ease;
+        overflow: hidden;
+    }
+
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Cards de métricas principais */
+    .metric-card {
+        padding: 2rem 1.5rem;
+        text-align: center;
+        height: 100%;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(var(--bs-primary-rgb), 0.05), transparent);
+        transition: left 0.6s ease;
+    }
+
+    .metric-card:hover::before {
+        left: 100%;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-8px);
+        border-color: rgba(var(--bs-primary-rgb), 0.3);
+    }
+
+    .metric-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(var(--bs-primary-rgb), 0.1) 0%, rgba(var(--bs-primary-rgb), 0.05) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.75rem;
+        color: var(--bs-primary);
+        transition: all 0.3s ease;
+    }
+
+    .metric-card:hover .metric-icon {
+        transform: scale(1.1);
+        background: linear-gradient(135deg, var(--bs-primary) 0%, rgba(var(--bs-primary-rgb), 0.8) 100%);
+        color: white;
+        box-shadow: 0 8px 25px rgba(var(--bs-primary-rgb), 0.3);
+    }
+
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 0.5rem 0;
+        background: linear-gradient(135deg, var(--bs-primary) 0%, #667eea 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        line-height: 1;
+    }
+
+    .metric-label {
+        color: var(--bs-secondary-color);
+        font-size: 1rem;
+        margin-bottom: 0;
+    }
+
+    /* Cards de produtos destacados */
+    .featured-product-card {
+        padding: 2rem;
+        text-align: center;
+        height: 100%;
+        transition: all 0.4s ease;
+    }
+
+    .featured-product-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .product-badge {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        font-size: 1.5rem;
+        color: white;
+    }
+
+    .badge-best-seller {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    }
+
+    .badge-most-profitable {
+        background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+    }
+
+    .product-name {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--bs-body-color);
+    }
+
+    .product-stats {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+    }
+
+    .product-description {
+        color: var(--bs-secondary-color);
+        font-size: 0.9rem;
+    }
+
+    /* Container dos gráficos - CORREÇÃO PRINCIPAL */
+    .chart-wrapper {
+        position: relative;
+        height: 400px; /* Altura fixa para todos os gráficos */
+        width: 100%;
+        margin: 0 auto;
+    }
+
+    .chart-container {
+        padding: 1.5rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-shrink: 0; /* Impede que o header seja esmagado */
+    }
+
+    .chart-title {
+        font-weight: 600;
+        color: var(--bs-body-color);
+        margin: 0;
+    }
+
+    /* Canvas dos gráficos - CORREÇÃO CRÍTICA */
+    .chart-canvas {
+        width: 100% !important;
+        height: 100% !important;
+        flex-grow: 1;
+        min-height: 0; /* Permite que o canvas se ajuste corretamente */
+    }
+
+    /* Tabela de vendas */
+    .sales-table-container {
+        margin-top: 2rem;
+    }
+
+    .table-header {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--glass-border);
+        padding: 1.5rem;
+        border-radius: var(--card-radius) var(--card-radius) 0 0;
+    }
+
+    .table-glass {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+    }
+
+    .table-glass thead th {
+        background: rgba(var(--bs-body-color-rgb), 0.03);
+        border-bottom: 1px solid var(--glass-border);
+        font-weight: 600;
+        color: var(--bs-body-color);
+        padding: 1rem 1.5rem;
+    }
+
+    .table-glass tbody td {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid rgba(var(--bs-border-color-rgb), 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .table-glass tbody tr:hover td {
+        background: rgba(var(--bs-primary-rgb), 0.05);
+        transform: translateX(5px);
+    }
+
+    /* Títulos de seção */
+    .section-title {
+        color: var(--bs-body-color);
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        position: relative;
+        padding-bottom: 0.75rem;
+        font-size: 1.5rem;
+    }
+
+    .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 60px;
+        height: 4px;
+        background: linear-gradient(90deg, var(--bs-primary) 0%, transparent 100%);
+        border-radius: 2px;
+    }
+
+    /* Botões de ação */
+    .action-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        transition: all var(--transition-speed) ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .action-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .report-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .metric-card {
+            padding: 1.5rem 1rem;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+        }
+        
+        .metric-icon {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+        
+        .featured-product-card {
+            padding: 1.5rem;
+        }
+        
+        .chart-container {
+            padding: 1rem;
+        }
+        
+        .chart-wrapper {
+            height: 300px; /* Altura menor em mobile */
+        }
+    }
+
+    @media (max-width: 576px) {
+        .chart-wrapper {
+            height: 250px; /* Altura ainda menor em telas pequenas */
+        }
+    }
+
+    /* Animações de entrada */
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .metric-card {
+        animation: slideInUp 0.6s ease-out forwards;
+    }
+
+    .metric-card:nth-child(1) { animation-delay: 0.1s; }
+    .metric-card:nth-child(2) { animation-delay: 0.2s; }
+    .metric-card:nth-child(3) { animation-delay: 0.3s; }
+</style>
 {% endblock %}
 
+{% block content %}
+<div class="report-container">
+    <!-- Header do Relatório -->
+    <div class="report-header glass-card">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h2 mb-2">Relatório de Vendas</h1>
+                <p class="mb-0 opacity-75">
+                    <span class="fw-semibold">{{ periodo_titulo }}</span>
+                    <span class="opacity-75">{{ periodo_titulo_detalhe }}</span>
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="d-flex gap-2 justify-content-md-end justify-content-start flex-wrap">
+                    {% if filtro_ativo %}
+                    <a href="{% url 'relatorio_vendas' periodo %}" class="action-btn">
+                        <i class="bi bi-arrow-left"></i> Voltar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'dashboard_estoque' %}" class="action-btn">
+                        <i class="bi bi-grid-fill"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas Principais -->
+    <section class="mb-5">
+        <h2 class="section-title">Visão Geral do Período</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="metric-card glass-card">
+                    <div class="metric-icon">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <div class="metric-value">{{ totais_periodo.quantidade|default:0 }}</div>
+                    <div class="metric-label">Unidades Vendidas</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card glass-card">
+                    <div class="metric-icon">
+                        <i class="bi bi-currency-dollar"></i>
+                    </div>
+                    <div class="metric-value text-success">R$ {{ totais_periodo.faturamento|floatformat:2 }}</div>
+                    <div class="metric-label">Faturamento Total</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card glass-card">
+                    <div class="metric-icon">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <div class="metric-value text-info">R$ {{ totais_periodo.lucro|floatformat:2 }}</div>
+                    <div class="metric-label">Lucro Gerado</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Produtos Destacados -->
+    <section class="mb-5">
+        <h2 class="section-title">Produtos em Destaque</h2>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="featured-product-card glass-card">
+                    <div class="product-badge badge-best-seller">
+                        <i class="bi bi-trophy-fill"></i>
+                    </div>
+                    <div class="product-name">Mais Vendido</div>
+                    {% if produto_mais_vendido %}
+                        <h4 class="product-stats text-warning">{{ produto_mais_vendido.total_vendido }}</h4>
+                        <p class="product-description mb-2">{{ produto_mais_vendido }}</p>
+                        <small class="text-secondary">unidades vendidas</small>
+                    {% else %}
+                        <p class="text-secondary mb-0">Nenhuma venda registrada</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="featured-product-card glass-card">
+                    <div class="product-badge badge-most-profitable">
+                        <i class="bi bi-gem"></i>
+                    </div>
+                    <div class="product-name">Mais Lucrativo</div>
+                    {% if produto_mais_lucrativo %}
+                        <h4 class="product-stats text-success">R$ {{ produto_mais_lucrativo.lucro_gerado|floatformat:2 }}</h4>
+                        <p class="product-description mb-2">{{ produto_mais_lucrativo }}</p>
+                        <small class="text-secondary">lucro gerado</small>
+                    {% else %}
+                        <p class="text-secondary mb-0">Nenhuma venda registrada</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Gráficos - VERSÃO CORRIGIDA -->
+    <section class="mb-5">
+        <h2 class="section-title">Análise Visual</h2>
+        <div class="row g-4">
+            {% if is_daily_view %}
+                <div class="col-12">
+                    <div class="glass-card">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3 class="chart-title">
+                                    <i class="bi bi-clock-history text-primary me-2"></i>
+                                    Vendas por Hora
+                                </h3>
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="graficoVendasPorHora" class="chart-canvas"
+                                        data-labels="{{ chart_hourly_labels }}"
+                                        data-values="{{ chart_hourly_data }}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="col-lg-6">
+                    <div class="glass-card h-100">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3 class="chart-title">
+                                    <i class="bi bi-bar-chart-line-fill text-primary me-2"></i>
+                                    {{ chart_titulo }}
+                                </h3>
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="graficoDesempenhoPeriodo" class="chart-canvas"
+                                        data-labels="{{ chart_breakdown_labels }}"
+                                        data-values="{{ chart_breakdown_data }}"
+                                        data-periodo="{{ periodo }}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card h-100">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3 class="chart-title">
+                                    <i class="bi bi-graph-up-arrow text-success me-2"></i>
+                                    {{ chart_lucro_title }}
+                                </h3>
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="graficoLucratividade" class="chart-canvas"
+                                        data-labels="{{ chart_lucro_labels }}"
+                                        data-values="{{ chart_lucro_data }}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Tabela de Vendas Detalhadas -->
+    <section class="sales-table-container">
+        <h2 class="section-title">Vendas por Variação</h2>
+        <div class="glass-card">
+            <div class="table-header">
+                <h3 class="mb-0">
+                    <i class="bi bi-table text-primary me-2"></i>
+                    Detalhamento Completo
+                </h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-glass mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="ps-4">Variação do Produto</th>
+                            <th scope="col" class="text-center">Quantidade Vendida</th>
+                            <th scope="col" class="text-end pe-4">Faturamento</th>
+                            <th scope="col" class="text-end pe-4">Lucro</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for venda in vendas_detalhadas %}
+                        <tr>
+                            <td class="ps-4 fw-medium">{{ venda.nome_completo }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
+                                    {{ venda.total_quantidade }}
+                                </span>
+                            </td>
+                            <td class="text-end text-success fw-bold pe-4">R$ {{ venda.total_faturamento|floatformat:2 }}</td>
+                            <td class="text-end text-info fw-bold pe-4">R$ {{ venda.total_lucro|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-secondary">
+                                <i class="bi bi-inbox display-4 d-block mb-3 opacity-50"></i>
+                                Nenhuma venda registrada neste período
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
 
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // Configuração de tema para os gráficos
         const updateChartTheme = () => {
             const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
             const fontColor = isDarkMode ? '#adb5bd' : '#495057';
             const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            
             Chart.defaults.color = fontColor;
             Chart.instances.forEach(chart => {
                 if (chart.options.scales) {
-                    if (chart.options.scales.x) { chart.options.scales.x.ticks.color = fontColor; chart.options.scales.x.grid.color = gridColor; }
-                    if (chart.options.scales.y) { chart.options.scales.y.ticks.color = fontColor; chart.options.scales.y.grid.color = gridColor; }
+                    if (chart.options.scales.x) { 
+                        chart.options.scales.x.ticks.color = fontColor; 
+                        chart.options.scales.x.grid.color = gridColor;
+                    }
+                    if (chart.options.scales.y) { 
+                        chart.options.scales.y.ticks.color = fontColor; 
+                        chart.options.scales.y.grid.color = gridColor;
+                    }
                 }
-                if (chart.options.plugins && chart.options.plugins.legend) { chart.options.plugins.legend.labels.color = fontColor; }
+                if (chart.options.plugins && chart.options.plugins.legend) { 
+                    chart.options.plugins.legend.labels.color = fontColor; 
+                }
                 chart.update();
             });
         };
+
+        // Função para criar gráficos com configuração consistente
+        const createChart = (canvasId, config) => {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return null;
+
+            const ctx = canvas.getContext('2d');
+            return new Chart(ctx, {
+                ...config,
+                options: {
+                    ...config.options,
+                    responsive: true,
+                    maintainAspectRatio: false, // CRÍTICO: permite controle total da altura
+                    plugins: {
+                        ...config.options?.plugins,
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1
+                        }
+                    }
+                }
+            });
+        };
+
+        // Gráfico de Desempenho
         const ctxDesempenho = document.getElementById('graficoDesempenhoPeriodo');
         if (ctxDesempenho) {
             const breakdownLabels = JSON.parse(ctxDesempenho.dataset.labels);
             const breakdownData = JSON.parse(ctxDesempenho.dataset.values);
             const currentPeriodo = ctxDesempenho.dataset.periodo;
-            ctxDesempenho.style.cursor = 'pointer';
-            new Chart(ctxDesempenho, {
+            
+            createChart('graficoDesempenhoPeriodo', {
                 type: 'bar',
-                data: { labels: breakdownLabels, datasets: [{ label: 'Unidades Vendidas', data: breakdownData, backgroundColor: 'rgba(0, 122, 255, 0.7)', borderRadius: 4, }] },
+                data: { 
+                    labels: breakdownLabels, 
+                    datasets: [{ 
+                        label: 'Unidades Vendidas', 
+                        data: breakdownData, 
+                        backgroundColor: 'rgba(0, 122, 255, 0.7)', 
+                        borderRadius: 8,
+                        borderWidth: 0
+                    }] 
+                },
                 options: {
-                    scales: { y: { beginAtZero: true, grid: {} } },
-                    plugins: { legend: { display: false } },
-                    // ==========================================================
-                    // INÍCIO DA LÓGICA DO CLIQUE CORRIGIDA
-                    // ==========================================================
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    },
                     onClick: (event, elements) => {
                         if (elements.length > 0) {
                             const index = elements[0].index;
@@ -204,48 +683,96 @@
                             const hasWeekFilter = url.searchParams.has('semana');
 
                             if (currentPeriodo === 'mes' && !hasWeekFilter) {
-                                // Se estamos na visão de MÊS e NÃO há filtro de semana,
-                                // o clique é para FILTRAR UMA SEMANA.
                                 const semana = breakdownLabels[index].split(' ')[1];
                                 url.searchParams.set('semana', semana);
                             } else {
-                                // Se estamos na visão de SEMANA (ou em uma semana já filtrada),
-                                // o clique é para FILTRAR UM DIA.
                                 url.searchParams.set('dia', index + 1);
                             }
                             window.location.href = url.toString();
                         }
                     }
-                    // ==========================================================
-                    // FIM DA LÓGICA DO CLIQUE CORRIGIDA
-                    // ==========================================================
                 }
             });
         }
+
+        // Gráfico de Lucratividade
         const ctxLucro = document.getElementById('graficoLucratividade');
         if(ctxLucro) {
             const lucroLabels = JSON.parse(ctxLucro.dataset.labels);
             const lucroData = JSON.parse(ctxLucro.dataset.values);
-            new Chart(ctxLucro, {
+            
+            createChart('graficoLucratividade', {
                 type: 'bar',
-                data: { labels: lucroLabels, datasets: [{ label: 'Lucro (R$)', data: lucroData, backgroundColor: 'rgba(40, 167, 69, 0.7)', borderRadius: 4, }] },
-                options: { indexAxis: 'y', scales: { x: { beginAtZero: true, grid: {} } }, plugins: { legend: { display: false } } }
+                data: { 
+                    labels: lucroLabels, 
+                    datasets: [{ 
+                        label: 'Lucro (R$)', 
+                        data: lucroData, 
+                        backgroundColor: 'rgba(40, 167, 69, 0.7)', 
+                        borderRadius: 8,
+                        borderWidth: 0
+                    }] 
+                },
+                options: { 
+                    indexAxis: 'y',
+                    scales: { 
+                        x: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
             });
         }
+
+        // Gráfico de Vendas por Hora
         const ctxHourly = document.getElementById('graficoVendasPorHora');
         if(ctxHourly) {
             const hourlyLabels = JSON.parse(ctxHourly.dataset.labels);
             const hourlyData = JSON.parse(ctxHourly.dataset.values);
-            new Chart(ctxHourly, {
+            
+            createChart('graficoVendasPorHora', {
                 type: 'line',
-                data: { labels: hourlyLabels, datasets: [{ label: 'Unidades Vendidas', data: hourlyData, borderColor: 'rgba(0, 122, 255, 1)', backgroundColor: 'rgba(0, 122, 255, 0.2)', fill: true, tension: 0.3 }] },
-                options: { scales: { y: { beginAtZero: true, grid: {} } }, plugins: { legend: { display: false } } }
+                data: { 
+                    labels: hourlyLabels, 
+                    datasets: [{ 
+                        label: 'Unidades Vendidas', 
+                        data: hourlyData, 
+                        borderColor: 'rgba(0, 122, 255, 1)', 
+                        backgroundColor: 'rgba(0, 122, 255, 0.2)', 
+                        fill: true, 
+                        tension: 0.3,
+                        borderWidth: 3,
+                        pointBackgroundColor: 'rgba(0, 122, 255, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5
+                    }] 
+                },
+                options: { 
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
             });
         }
+
+        // Inicializar tema e observar mudanças
         updateChartTheme();
         const themeObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
-                if (mutation.attributeName === "data-bs-theme") { updateChartTheme(); }
+                if (mutation.attributeName === "data-bs-theme") { 
+                    updateChartTheme(); 
+                }
             });
         });
         themeObserver.observe(document.documentElement, { attributes: true });
