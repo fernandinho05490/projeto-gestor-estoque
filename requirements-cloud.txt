@@ -1,0 +1,11 @@
+cat > requirements-cloud.txt << 'EOF'
+Django==4.2.7
+gunicorn==21.2.0
+psycopg2-binary==2.9.7
+celery==5.3.4
+redis==5.0.1
+django-celery-results==2.5.1
+numpy==1.24.3
+pyopencl==2023.1.6
+whitenoise==6.6.0
+EOF

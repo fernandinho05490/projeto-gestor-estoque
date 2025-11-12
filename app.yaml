@@ -1,0 +1,17 @@
+runtime: python311
+entrypoint: gunicorn -b :$PORT Suestoque.gestor_estoque.wsgi:application
+
+env_variables:
+  DJANGO_SETTINGS_MODULE: "Suestoque.gestor_estoque.settings"
+  SECRET_KEY: "sua-chave-secreta-aqui-mude-antes-de-deploy"
+  DEBUG: "False"
+  PYTHONPATH: "/app"
+
+handlers:
+- url: /static
+  static_dir: staticfiles/
+  secure: always
+
+- url: /.*
+  script: auto
+  secure: always
