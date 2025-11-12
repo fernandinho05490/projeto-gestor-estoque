@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Status da Simulação</title>
+</head>
+
+<body>
+    <h1>Aguardando resultado da simulação...</h1>
+    <p><strong>ID da Tarefa:</strong> {{ task_id }}</p>
+
+    <div id="resultado">
+        <h2>Status: <span id="status-span">Processando... 🚀</span></h2>
+    </div>
+
+    <script>
+        // Pega o ID da tarefa que o Django colocou na página
+        const taskID = "{{ task_id }}";
+
+        // Define a URL que vamos checar
+        // Usamos o template tag 'url' do Django para construir a URL correta
+        const checkResultURL = "{% url 'checar_resultado_json' '0000' %}".replace('0000', taskID);
+
+        function checarStatus() {
+            console.log("Checando status...");
+            fetch(checkResultURL)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Resposta do servidor:", data);
+
+                    const statusSpan = document.getElementById('status-span');
+                    const resultadoDiv = document.getElementById('resultado');
+
+                    if (data.status === 'PENDING') {
+                        statusSpan.textContent = 'Processando... 🚀';
+                        // Continua checando a cada 2 segundos
+                        setTimeout(checarStatus, 2000);
+                    }
+                    else if (data.status === 'SUCCESS') {
+                        statusSpan.textContent = 'Concluído! ✅';
+                        // Mostra o resultado!
+                        resultadoDiv.innerHTML += `<h3>Resultado da GPU:</h3><pre>${data.result}</pre>`;
+                    }
+                    else if (data.status === 'FAILURE') {
+                        statusSpan.textContent = 'Falhou! ❌';
+                        // Mostra o erro
+                        resultadoDiv.innerHTML += `<h3>Erro:</h3><pre>${data.result}</pre>`;
+                    }
+                })
+                .catch(error => {
+                    console.error("Erro no fetch:", error);
+                    // Tenta de novo mesmo se der erro de rede
+                    setTimeout(checarStatus, 2000);
+                });
+        }
+
+        // Inicia a primeira checagem
+        document.addEventListener('DOMContentLoaded', (event) => {
+            setTimeout(checarStatus, 2000); // Espera 2s para começar
+        });
+    </script>
+</body>
+
+</html>
