@@ -37,6 +37,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.dateformat import format as format_date
 from django.views.decorators.http import require_POST
+from .tasks import executar_simulacao_lucro # Importar a tarefa
+from celery.result import AsyncResult # Para checar o status
 
 # Bibliotecas de Terceiros
 try:
@@ -1032,3 +1034,39 @@ def search_view(request):
         ).distinct().select_related('produto__categoria')
     context = {'query': query, 'results': results}
     return render(request, 'estoque/search_results.html', context)
+
+# --- VIEW DE SIMULAÇÃO ---
+def iniciar_simulacao_view(request):
+    # Dispara a tarefa
+    task = executar_simulacao_lucro.delay(25.50, 55.00)
+
+    print(f">>> VIEW: Tarefa enviada para a fila. ID: {task.id}")
+    
+    # Redireciona para a página de status, passando o ID da tarefa
+    return redirect('pagina_status', task_id=task.id)
+
+def pagina_status_view(request, task_id):
+    # Esta view apenas renderiza o template que vai fazer o polling
+    return render(request, 'estoque/pagina_status.html', {'task_id': task_id})
+
+def checar_resultado_json_view(request, task_id):
+    # Esta view é que o JavaScript vai chamar
+    task_result = AsyncResult(task_id)
+
+    if task_result.ready():
+        # Tarefa terminou!
+        if task_result.successful():
+            # Sucesso! Retorna o resultado
+            return JsonResponse({
+                'status': 'SUCCESS',
+                'result': task_result.result # Pega o valor do 'return' da tarefa
+            })
+        else:
+            # Falha! Retorna o erro
+            return JsonResponse({
+                'status': 'FAILURE',
+                'result': str(task_result.info) # 'info' contém a exceção
+            })
+    else:
+        # Tarefa ainda rodando
+        return JsonResponse({'status': 'PENDING'})

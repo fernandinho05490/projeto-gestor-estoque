@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'estoque',
+    'django_celery_results',
 ]
 
 MIDDLEWARE = [
@@ -81,12 +82,30 @@ WSGI_APPLICATION = 'gestor_estoque.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# --- INÍCIO DO NOVO BLOCO DE BANCO DE DADOS ---
+# Configuração do Banco de Dados (Pronta para Docker)
+
+# Se a variável de ambiente 'DATABASE_URL' for definida (pelo Docker), use-a.
+# Caso contrário, volte a usar o sqlite3 para desenvolvimento local.
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    # Estamos no ambiente de produção (Docker)
+    # (Lembre-se de ter 'dj-database-url' no seu requirements.txt)
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL)
     }
-}
+else:
+    # Estamos no ambiente de desenvolvimento (local)
+    print("!!! USANDO SQLITE3 PARA DESENVOLVIMENTO LOCAL !!!")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+# --- FIM DO NOVO BLOCO DE BANCO DE DADOS ---
 
 
 # Password validation
@@ -134,3 +153,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = 'login'
+
+# --- Configuração do Celery ---
+# Aponta para o Redis que você instalou no Passo 0
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  
+CELERY_RESULT_BACKEND = 'django-db' 
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Sao_Paulo' # Ajuste para seu fuso horário
+# ------------------------------

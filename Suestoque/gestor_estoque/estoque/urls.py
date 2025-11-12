@@ -1,5 +1,6 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
+from . import views
 from .views import (
     dashboard_estoque, 
     registrar_movimentacao, 
@@ -25,6 +26,9 @@ from .views import (
     preparar_fatura_view,
     # ajustar_venda_view,
     busca_global_api_view,
+    iniciar_simulacao_view,
+    pagina_status_view,
+    checar_resultado_json_view,
 )
 
 urlpatterns = [
@@ -66,5 +70,10 @@ urlpatterns = [
     
     # nova rota para api de busca global
     path('api/busca-global/', busca_global_api_view, name='busca_global_api'),
+
+    # url de simulação
+    path('iniciar-simulacao/', iniciar_simulacao_view, name='iniciar_simulacao'),
+    path('status/<str:task_id>/', pagina_status_view, name='pagina_status'),
+    path('resultado-json/<str:task_id>/', checar_resultado_json_view, name='checar_resultado_json'),
 ]
 
