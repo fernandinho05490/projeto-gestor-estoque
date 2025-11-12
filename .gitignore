@@ -1,3 +1,5 @@
+cat >> .gitignore << 'EOF'
+
 # Ambientes Virtuais
 venv/
 .venv/
@@ -26,3 +28,18 @@ __pycache__/
 
 # Arquivos do VS Code
 .vscode/
+
+# Arquivos gerados automaticamente
+estrutura_do_projeto.txt
+gerar_arvore.py
+
+# Docker
+.dockerignore
+
+# Arquivos temporários
+temp/
+tmp/
+
+# Logs adicionais
+logs/
+EOF
