@@ -33,3 +33,17 @@ except Exception as e:
     print(f"❌ Erro ao criar usuário: {e}")
 
 print("=== SETUP CONCLUÍDO ===")
+
+# Coletar arquivos estáticos
+try:
+    execute_from_command_line(['manage.py', 'collectstatic', '--noinput'])
+    print("✅ Arquivos estáticos coletados com sucesso!")
+except Exception as e:
+    print(f"❌ Erro ao coletar estáticos: {e}")
+
+# Adicione ao startup.py para carregar dados iniciais
+try:
+    execute_from_command_line(['manage.py', 'loaddata', 'estoque/fixtures/dados_iniciais.json'])
+    print("✅ Dados iniciais carregados!")
+except Exception as e:
+    print(f"❌ Erro ao carregar dados: {e}")
