@@ -49,7 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', 
+    #'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -174,14 +174,19 @@ CELERY_TIMEZONE = 'America/Sao_Paulo' # Ajuste para seu fuso horário
 import os
 if os.getenv('GAE_APPLICATION', None):
     DEBUG = False
-    ALLOWED_HOSTS = ['your-app-id.uc.r.appspot.com', 'localhost']
+    ALLOWED_HOSTS = [
+        'gestor-estoque-05490.uc.r.appspot.com',
+        'gestor-estoque-05490.rj.r.appspot.com',
+        'gestor-estoque-05490.appspot.com',  # ← ADICIONE ESTE
+        '.appspot.com',  # ← ADICIONE ESTE (permite todos subdomínios)
+        'localhost',
+        '127.0.0.1'
+    ]
     
-    # Database - vamos usar Cloud SQL depois
+    # Database - SQLite em memória temporariamente
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+            'NAME': ':memory:',
         }
     }
-    # Static files - APENAS o storage para produção
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
