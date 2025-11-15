@@ -191,25 +191,21 @@ if os.getenv('GAE_APPLICATION', None):
         }
     }
 
-# Cria usuário automaticamente se estiver no App Engine
+# No FINAL do settings.py, adicione:
+
+# Configuração para criar usuário após apps carregarem
 if os.getenv('GAE_APPLICATION', None):
-    try:
-        from django.contrib.auth import get_user_model
-        from django.db.utils import OperationalError, ProgrammingError
-        
-        # Esperar um pouco para o banco estar pronto
-        import time
-        time.sleep(2)
-        
-        # Criar usuário admin se não existir
-        User = get_user_model()
-        if not User.objects.filter(username='admin').exists():
-            User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
-            print("✅ Usuário admin criado: admin / admin123")
-        else:
-            print("✅ Usuário admin já existe")
-            
-    except (OperationalError, ProgrammingError) as e:
-        print(f"❌ Erro ao criar usuário: {e}")
-    except Exception as e:
-        print(f"❌ Erro inesperado: {e}")
+    # Usar signal para criar usuário após migrações
+    from django.db.models.signals import post_migrate
+    from django.contrib.auth import get_user_model
+    from django.dispatch import receiver
+    
+    @receiver(post_migrate)
+    def create_superuser(sender, **kwargs):
+        try:
+            User = get_user_model()
+            if not User.objects.filter(username='admin').exists():
+                User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
+                print("✅ Usuário admin criado: admin / admin123")
+        except Exception as e:
+            print(f"❌ Erro ao criar usuário: {e}")
