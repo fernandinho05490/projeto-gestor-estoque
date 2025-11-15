@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Django
+*.sqlite3
+db.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Node.js (se tiver)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Documentação
+docs/_build/
+
+# Arquivos gerados
+estrutura_do_projeto.txt
+gerar_arvore.py
+
+# Scripts locais
+scripts/
+start_celery.sh
+Suestoque/start_celery.sh
+
+# Migrations (opcional - pode remover se quiser manter)
+# Suestoque/gestor_estoque/estoque/migrations/
