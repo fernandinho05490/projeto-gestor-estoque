@@ -190,3 +190,26 @@ if os.getenv('GAE_APPLICATION', None):
             'NAME': ':memory:',
         }
     }
+
+# Cria usuário automaticamente se estiver no App Engine
+if os.getenv('GAE_APPLICATION', None):
+    try:
+        from django.contrib.auth import get_user_model
+        from django.db.utils import OperationalError, ProgrammingError
+        
+        # Esperar um pouco para o banco estar pronto
+        import time
+        time.sleep(2)
+        
+        # Criar usuário admin se não existir
+        User = get_user_model()
+        if not User.objects.filter(username='admin').exists():
+            User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
+            print("✅ Usuário admin criado: admin / admin123")
+        else:
+            print("✅ Usuário admin já existe")
+            
+    except (OperationalError, ProgrammingError) as e:
+        print(f"❌ Erro ao criar usuário: {e}")
+    except Exception as e:
+        print(f"❌ Erro inesperado: {e}")
